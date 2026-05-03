@@ -1,0 +1,63 @@
+# Clothing Store Mobile Application - Documentation
+
+## 1. Problem Statement
+The modern fashion retail industry requires accessible, user-friendly digital platforms to reach consumers effectively. Small to medium-sized clothing retailers often struggle with managing inventory and providing a seamless shopping experience. This project aims to develop a full-stack mobile application that allows users to browse clothing items, manage a shopping cart, and securely purchase products, while providing administrators with tools to manage product inventory.
+
+## 2. System Architecture
+**Client-Server Architecture**
+- **Frontend (Client):** A React Native mobile application providing the user interface across Android and iOS platforms. It communicates with the backend via RESTful HTTP requests.
+- **Backend (Server):** A Node.js and Express.js REST API that handles business logic, authentication, and data processing.
+- **Database:** MongoDB, a NoSQL database, used to store user data, product catalogs, and cart information securely.
+- **File Storage:** Local storage using Multer (or Cloud storage like Cloudinary for production) for handling product image uploads.
+
+## 3. Database Schema
+
+### User Collection
+- `_id`: ObjectId
+- `name`: String (required)
+- `email`: String (required, unique)
+- `password`: String (hashed, required)
+- `isAdmin`: Boolean (default: false)
+- `createdAt`: Date
+- `updatedAt`: Date
+
+### Product Collection
+- `_id`: ObjectId
+- `name`: String (required)
+- `price`: Number (required)
+- `size`: [String] (e.g., ['S', 'M', 'L'])
+- `category`: String (required)
+- `imageUrl`: String (required)
+- `createdAt`: Date
+- `updatedAt`: Date
+
+### Cart Collection
+- `_id`: ObjectId
+- `user`: ObjectId (Ref: User, required)
+- `items`: Array of Objects:
+  - `product`: ObjectId (Ref: Product)
+  - `quantity`: Number (default: 1)
+  - `size`: String
+- `totalPrice`: Number
+- `createdAt`: Date
+- `updatedAt`: Date
+
+## 4. API Endpoints Table
+
+| Method | Endpoint | Description | Auth Required | Admin Only |
+|--------|----------|-------------|---------------|------------|
+| POST   | `/api/auth/register` | Register new user | No | No |
+| POST   | `/api/auth/login` | Authenticate user & get token | No | No |
+| GET    | `/api/products` | Get all products | No | No |
+| GET    | `/api/products/:id` | Get single product | No | No |
+| POST   | `/api/products` | Create a product (w/ image) | Yes | Yes |
+| PUT    | `/api/products/:id` | Update a product | Yes | Yes |
+| DELETE | `/api/products/:id` | Delete a product | Yes | Yes |
+| GET    | `/api/cart` | Get user's cart | Yes | No |
+| POST   | `/api/cart/add` | Add item to cart | Yes | No |
+| DELETE | `/api/cart/remove/:itemId` | Remove item from cart | Yes | No |
+
+## 5. Team Responsibility Breakdown (Example for a 3-person team)
+- **Student 1 (Backend & Database):** Set up Node.js server, design MongoDB schemas, implement JWT authentication, and build RESTful API routes.
+- **Student 2 (Frontend UI/UX):** Initialize React Native app, design and implement screens (Login, Register, Home, Product Details), and handle state management/navigation.
+- **Student 3 (Integration & Deployment):** Connect frontend to backend APIs, handle image upload integration (Multer), manage cart logic on frontend, and deploy the backend to Render.
