@@ -19,6 +19,10 @@ const protect = async (req, res, next) => {
                 return res.status(401).json({ message: 'User not found. Please log in again.' });
             }
 
+            if (req.user.isActive === false) {
+                return res.status(403).json({ message: 'This account has been deactivated' });
+            }
+
             next();
         } catch (error) {
             console.error(error);

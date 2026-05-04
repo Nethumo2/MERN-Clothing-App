@@ -26,6 +26,21 @@ const showConfirm = (title, message, onConfirm) => {
   }
 };
 
+const firstImage = (images) => {
+  if (!Array.isArray(images) || images.length === 0) return '';
+  const image = images[0];
+  return image?.url || image?.src || image?.imageUrl || image?.image || image;
+};
+
+const getProductImage = (product) => (
+  product?.imageUrl ||
+  product?.imageURL ||
+  product?.image ||
+  product?.thumbnail ||
+  firstImage(product?.images) ||
+  'https://via.placeholder.com/120x140?text=LUSH'
+);
+
 export default function CartScreen({ navigation }) {
   const { refreshCart } = useCart();
   const [cart, setCart] = useState(null);
@@ -135,7 +150,7 @@ export default function CartScreen({ navigation }) {
           </Text>
         </TouchableOpacity>
         <Image
-          source={{ uri: product.imageUrl || product.images?.[0]?.url || product.images?.[0] || 'https://via.placeholder.com/120x120?text=Item' }}
+          source={{ uri: getProductImage(product) }}
           style={styles.itemImage}
           resizeMode="contain"
         />

@@ -79,6 +79,41 @@ export const guestLogin = async () => {
     return handleResponse(res);
 };
 
+export const fetchUsersWithActivity = async () => {
+    const res = await fetch(`${BASE_URL}/auth/users/activity`, {
+        headers: await authHeaders(),
+    });
+
+    return handleResponse(res);
+};
+
+export const fetchUsers = async () => {
+    const res = await fetch(`${BASE_URL}/auth/users`, {
+        headers: await authHeaders(),
+    });
+
+    return handleResponse(res);
+};
+
+export const updateUser = async (id, userData) => {
+    const res = await fetch(`${BASE_URL}/auth/users/${id}`, {
+        method: 'PUT',
+        headers: await authHeaders(),
+        body: JSON.stringify(userData),
+    });
+
+    return handleResponse(res);
+};
+
+export const deleteUser = async (id) => {
+    const res = await fetch(`${BASE_URL}/auth/users/${id}`, {
+        method: 'DELETE',
+        headers: await authHeaders(),
+    });
+
+    return handleResponse(res);
+};
+
 export const fetchProducts = async () => {
     const res = await fetch(`${BASE_URL}/products`);
     return handleResponse(res);
@@ -196,6 +231,14 @@ export const deleteCategory = async (id) => {
 
 export const fetchCart = async () => {
     const res = await fetch(`${BASE_URL}/cart`, {
+        headers: await authHeaders(),
+    });
+
+    return handleResponse(res);
+};
+
+export const fetchAllCarts = async () => {
+    const res = await fetch(`${BASE_URL}/cart/admin/all`, {
         headers: await authHeaders(),
     });
 

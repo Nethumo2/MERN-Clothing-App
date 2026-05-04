@@ -12,6 +12,8 @@ import { useFocusEffect } from '@react-navigation/native';
 
 const HERO_IMAGE = 'https://images.unsplash.com/photo-1496747611176-843222e1e57c?w=1200';
 const RECENTLY_VIEWED_KEY = 'recentlyViewed';
+const HOME_SHOWCASE_KEY = 'homeShowcase';
+const SHOWCASE_LABELS = ['Brand Pick', 'Discount Edit', 'New Drop'];
 
 export default function HomeScreen({ navigation }) {
     const { user, logout } = useAuth();
@@ -29,6 +31,7 @@ export default function HomeScreen({ navigation }) {
     const [search, setSearch] = useState('');
     const [productFilter, setProductFilter] = useState('all');
     const [recentlyViewedIds, setRecentlyViewedIds] = useState([]);
+    const [showcaseItems, setShowcaseItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
@@ -92,6 +95,49 @@ export default function HomeScreen({ navigation }) {
         await AsyncStorage.removeItem(RECENTLY_VIEWED_KEY);
         setRecentlyViewedIds([]);
     };
+
+    const loadShowcase = async () => {
+        try {
+            const stored = await AsyncStorage.getItem(HOME_SHOWCASE_KEY);
+            setShowcaseItems(stored ? JSON.parse(stored) : []);
+        } catch (_e) {
+            setShowcaseItems([]);
+        }
+    };
+
+    const saveShowcase = async (nextItems) => {
+        setShowcaseItems(nextItems);
+        await AsyncStorage.setItem(HOME_SHOWCASE_KEY, JSON.stringify(nextItems));
+    };
+
+    const getShowcaseItem = (productId) => (
+        showcaseItems.find((item) => item.productId === productId)
+    );
+
+    const addToShowcase = async (productId) => {
+        if (getShowcaseItem(productId)) return;
+        await saveShowcase([{ productId, label: SHOWCASE_LABELS[0] }, ...showcaseItems].slice(0, 8));
+    };
+
+    const removeFromShowcase = async (productId) => {
+        await saveShowcase(showcaseItems.filter((item) => item.productId !== productId));
+    };
+
+    const cycleShowcaseLabel = async (productId) => {
+        const nextItems = showcaseItems.map((item) => {
+            if (item.productId !== productId) return item;
+            const currentIndex = SHOWCASE_LABELS.indexOf(item.label);
+            const nextIndex = currentIndex >= 0 ? currentIndex + 1 : 0;
+            return { ...item, label: SHOWCASE_LABELS[nextIndex % SHOWCASE_LABELS.length] };
+        });
+        await saveShowcase(nextItems);
+    };
+
+    const clearShowcase = async () => {
+        setShowcaseItems([]);
+        await AsyncStorage.removeItem(HOME_SHOWCASE_KEY);
+    };
+
     const styles = StyleSheet.create({
         container: {
             flex: 1,
@@ -162,38 +208,27 @@ export default function HomeScreen({ navigation }) {
             fontSize: 10,
         },
 
-        adminAddBtn: {
-            flex: 1,
-            backgroundColor: '#BFA46A',
-            padding: 12,
-            borderRadius: 12,
-            alignItems: 'center',
-        },
-
         adminActions: {
             flexDirection: 'row',
-            gap: 10,
-            margin: 10,
+            flexWrap: 'wrap',
+            gap: 8,
+            marginTop: 14,
         },
 
-        adminAddText: {
-            color: '#FFFFFF',
-            fontWeight: '700',
-        },
-
-        adminGhostBtn: {
-            flex: 1,
-            backgroundColor: '#FFFFFF',
+        adminHeaderBtn: {
+            backgroundColor: '#FFFCF4',
             borderWidth: 1,
             borderColor: '#BFA46A',
-            padding: 12,
-            borderRadius: 12,
+            paddingVertical: 8,
+            paddingHorizontal: 10,
+            borderRadius: 999,
             alignItems: 'center',
         },
 
-        adminGhostText: {
+        adminHeaderText: {
             color: '#9F8247',
-            fontWeight: '800',
+            fontWeight: '900',
+            fontSize: 11,
         },
 
         search: {
@@ -205,6 +240,88 @@ export default function HomeScreen({ navigation }) {
             borderWidth: 1,
             borderColor: '#E8D8B8',
             color: '#1B1B1B',
+        },
+
+        showcaseBand: {
+            backgroundColor: '#FFFFFF',
+            marginHorizontal: 16,
+            marginTop: 16,
+            marginBottom: 6,
+            borderRadius: 16,
+            paddingVertical: 16,
+            borderWidth: 1,
+            borderColor: '#E9E2D8',
+            shadowColor: '#1B1B1B',
+            shadowOpacity: 0.05,
+            shadowRadius: 14,
+            shadowOffset: { width: 0, height: 7 },
+            elevation: 3,
+        },
+
+        showcaseHeader: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            paddingHorizontal: 16,
+            marginBottom: 12,
+        },
+
+        showcaseTitle: {
+            color: '#1B1B1B',
+            fontFamily: 'Georgia',
+            fontSize: 22,
+            fontWeight: '700',
+        },
+
+        showcaseClear: {
+            color: '#9F8247',
+            fontSize: 12,
+            fontWeight: '900',
+        },
+
+        showcaseRail: {
+            gap: 12,
+            paddingHorizontal: 16,
+        },
+
+        showcaseCard: {
+            width: 210,
+            borderRadius: 14,
+            overflow: 'hidden',
+            backgroundColor: '#FBFAF7',
+            borderWidth: 1,
+            borderColor: '#E9E2D8',
+        },
+
+        showcaseImage: {
+            width: '100%',
+            height: 210,
+            backgroundColor: '#F3EFE8',
+        },
+
+        showcaseInfo: {
+            padding: 11,
+        },
+
+        showcaseLabel: {
+            color: '#9F8247',
+            fontSize: 10,
+            fontWeight: '900',
+            letterSpacing: 1.3,
+            marginBottom: 5,
+        },
+
+        showcaseName: {
+            color: '#1B1B1B',
+            fontWeight: '900',
+            fontSize: 14,
+        },
+
+        showcasePrice: {
+            color: '#BFA46A',
+            fontWeight: '900',
+            fontSize: 13,
+            marginTop: 6,
         },
 
         hero: {
@@ -445,6 +562,50 @@ export default function HomeScreen({ navigation }) {
             marginTop: 5,
         },
 
+        adminShowcaseActions: {
+            flexDirection: 'row',
+            gap: 8,
+            marginTop: 10,
+        },
+
+        spotlightBtn: {
+            flex: 1,
+            borderRadius: 10,
+            paddingVertical: 8,
+            alignItems: 'center',
+            backgroundColor: '#FFFCF4',
+            borderWidth: 1,
+            borderColor: '#BFA46A',
+        },
+
+        spotlightBtnActive: {
+            backgroundColor: '#BFA46A',
+        },
+
+        spotlightText: {
+            color: '#9F8247',
+            fontWeight: '900',
+            fontSize: 10,
+        },
+
+        spotlightTextActive: {
+            color: '#FFFFFF',
+        },
+
+        removeSpotlightBtn: {
+            borderRadius: 10,
+            paddingVertical: 8,
+            paddingHorizontal: 10,
+            borderWidth: 1,
+            borderColor: '#B63B3B',
+        },
+
+        removeSpotlightText: {
+            color: '#B63B3B',
+            fontWeight: '900',
+            fontSize: 10,
+        },
+
         emptyText: {
             color: '#8A8175',
             fontSize: 14,
@@ -458,6 +619,7 @@ export default function HomeScreen({ navigation }) {
         useCallback(() => {
             loadProducts();
             loadRecentlyViewed();
+            loadShowcase();
         }, [])
     );
 
@@ -486,24 +648,52 @@ export default function HomeScreen({ navigation }) {
         .map((id) => products.find((product) => product._id === id))
         .filter(Boolean);
 
+    const showcaseProducts = showcaseItems
+        .map((spotlight) => {
+            const product = products.find((item) => item._id === spotlight.productId);
+            return product ? { ...product, spotlightLabel: spotlight.label } : null;
+        })
+        .filter(Boolean);
+
     const listHeader = (
         <>
-            {isAdmin && (
-                <View style={styles.adminActions}>
-                    <TouchableOpacity
-                        style={styles.adminAddBtn}
-                        onPress={() => navigation.navigate('AddProduct')}
-                    >
-                        <Text style={styles.adminAddText}>Add New Product</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={styles.adminGhostBtn}
-                        onPress={() => navigation.navigate('UncategorizedProducts')}
-                    >
-                        <Text style={styles.adminGhostText}>Uncategorized</Text>
-                    </TouchableOpacity>
+            {showcaseProducts.length > 0 ? (
+                <View style={styles.showcaseBand}>
+                    <View style={styles.showcaseHeader}>
+                        <Text style={styles.showcaseTitle}>LUSH Spotlight</Text>
+                        {isAdmin ? (
+                            <TouchableOpacity onPress={clearShowcase}>
+                                <Text style={styles.showcaseClear}>Clear</Text>
+                            </TouchableOpacity>
+                        ) : null}
+                    </View>
+                    <FlatList
+                        horizontal
+                        data={showcaseProducts}
+                        keyExtractor={(item) => item._id}
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.showcaseRail}
+                        renderItem={({ item }) => (
+                            <TouchableOpacity
+                                style={styles.showcaseCard}
+                                onPress={() => navigation.navigate('ProductDetails', { productId: item._id })}
+                                activeOpacity={0.86}
+                            >
+                                <Image
+                                    source={{ uri: item.imageUrl || 'https://via.placeholder.com/200' }}
+                                    style={styles.showcaseImage}
+                                    resizeMode="cover"
+                                />
+                                <View style={styles.showcaseInfo}>
+                                    <Text style={styles.showcaseLabel}>{item.spotlightLabel}</Text>
+                                    <Text style={styles.showcaseName} numberOfLines={2}>{item.name}</Text>
+                                    <Text style={styles.showcasePrice}>LKR {Number(item.price).toLocaleString()}</Text>
+                                </View>
+                            </TouchableOpacity>
+                        )}
+                    />
                 </View>
-            )}
+            ) : null}
 
             <View style={styles.hero}>
                 <Image source={{ uri: HERO_IMAGE }} style={styles.heroImage} resizeMode="cover" />
@@ -628,6 +818,38 @@ export default function HomeScreen({ navigation }) {
                             </Text>
                         )}
                     </View>
+                    {isAdmin ? (
+                        <View style={styles.adminShowcaseActions}>
+                            <TouchableOpacity
+                                style={[
+                                    styles.spotlightBtn,
+                                    getShowcaseItem(item._id) && styles.spotlightBtnActive,
+                                ]}
+                                onPress={() => (
+                                    getShowcaseItem(item._id)
+                                        ? cycleShowcaseLabel(item._id)
+                                        : addToShowcase(item._id)
+                                )}
+                            >
+                                <Text
+                                    style={[
+                                        styles.spotlightText,
+                                        getShowcaseItem(item._id) && styles.spotlightTextActive,
+                                    ]}
+                                >
+                                    {getShowcaseItem(item._id)?.label || 'Add Spotlight'}
+                                </Text>
+                            </TouchableOpacity>
+                            {getShowcaseItem(item._id) ? (
+                                <TouchableOpacity
+                                    style={styles.removeSpotlightBtn}
+                                    onPress={() => removeFromShowcase(item._id)}
+                                >
+                                    <Text style={styles.removeSpotlightText}>Remove</Text>
+                                </TouchableOpacity>
+                            ) : null}
+                        </View>
+                    ) : null}
                 </View>
             </TouchableOpacity>
         );
@@ -642,11 +864,36 @@ export default function HomeScreen({ navigation }) {
                     <Text style={styles.brandLabel}>LUSH</Text>
                     <Text style={styles.greeting}>New Luxury</Text>
                     <Text style={styles.tagline}>Curated for {user?.name?.split(' ')[0] || 'you'}</Text>
+                    {isAdmin && (
+                        <View style={styles.adminActions}>
+                            <TouchableOpacity
+                                style={styles.adminHeaderBtn}
+                                onPress={() => navigation.navigate('AddProduct')}
+                            >
+                                <Text style={styles.adminHeaderText}>Add Product</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={styles.adminHeaderBtn}
+                                onPress={() => navigation.navigate('UncategorizedProducts')}
+                            >
+                                <Text style={styles.adminHeaderText}>Categories</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={styles.adminHeaderBtn}
+                                onPress={() => navigation.navigate('AdminUsers')}
+                            >
+                                <Text style={styles.adminHeaderText}>Users</Text>
+                            </TouchableOpacity>
+                        </View>
+                    )}
                 </View>
 
-                <TouchableOpacity style={styles.cartBtn} onPress={() => navigation.navigate('Cart')}>
-                    <Text style={styles.cartIcon}>BAG</Text>
-                    {cartCount > 0 && (
+                <TouchableOpacity
+                    style={styles.cartBtn}
+                    onPress={() => navigation.navigate(isAdmin ? 'AdminCarts' : 'Cart')}
+                >
+                    <Text style={styles.cartIcon}>{isAdmin ? 'CARTS' : 'BAG'}</Text>
+                    {!isAdmin && cartCount > 0 && (
                         <View style={styles.badge}>
                             <Text style={styles.badgeText}>{cartCount}</Text>
                         </View>

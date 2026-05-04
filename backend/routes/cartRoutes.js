@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const Cart = require('../models/Cart');
 const Product = require('../models/Product');
 const Category = require('../models/Category');
-const { protect } = require('../middleware/auth');
+const { protect, admin } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -28,7 +28,7 @@ const getCategoryId = (category) => {
 const firstImage = (images) => {
     if (!Array.isArray(images) || images.length === 0) return '';
     const image = images[0];
-    return image?.url || image?.src || image;
+    return image?.url || image?.src || image?.imageUrl || image?.image || image;
 };
 
 const normalizeProduct = (product, categoryMap) => {
@@ -40,7 +40,14 @@ const normalizeProduct = (product, categoryMap) => {
 
     obj.size = obj.size || obj.sizes || [];
     obj.sizes = obj.sizes || obj.size || [];
-    obj.imageUrl = obj.imageUrl || firstImage(obj.images) || 'https://via.placeholder.com/300x300?text=No+Image';
+    obj.imageUrl = (
+        obj.imageUrl ||
+        obj.imageURL ||
+        obj.image ||
+        obj.thumbnail ||
+        firstImage(obj.images) ||
+        'https://via.placeholder.com/300x300?text=No+Image'
+    );
     obj.images = obj.images || [obj.imageUrl];
     obj.countInStock = obj.countInStock ?? obj.stock ?? 0;
     obj.stock = obj.stock ?? obj.countInStock ?? 0;
@@ -116,6 +123,24 @@ router.get('/', protect, async (req, res) => {
             cart = await populateCart(cart._id);
         }
         res.json(await toResponseCart(cart));
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// @desc    Get all carts for admin activity view
+// @route   GET /api/cart/admin/all
+// @access  Private/Admin
+router.get('/admin/all', protect, admin, async (req, res) => {
+    try {
+        const carts = await Cart.find({})
+            .populate('user', 'name email isAdmin')
+            .populate('items.product')
+            .sort({ updatedAt: -1 });
+
+        const customerCarts = carts.filter((cart) => cart.user && cart.user.isAdmin !== true);
+        const response = await Promise.all(customerCarts.map(async (cart) => toResponseCart(cart)));
+        res.json(response.filter(Boolean));
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

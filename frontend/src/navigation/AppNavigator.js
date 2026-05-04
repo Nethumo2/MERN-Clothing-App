@@ -15,6 +15,8 @@ import OrderHistoryScreen from '../screens/OrderHistoryScreen';
 import AddProductScreen from '../screens/AddProductScreen';
 import EditProductScreen from '../screens/EditProductScreen';
 import UncategorizedProductsScreen from '../screens/UncategorizedProductsScreen';
+import AdminUsersScreen from '../screens/AdminUsersScreen';
+import AdminCartsScreen from '../screens/AdminCartsScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -41,6 +43,8 @@ function AppStack() {
             <Stack.Screen name="AddProduct" component={AddProductScreen} />
             <Stack.Screen name="EditProduct" component={EditProductScreen} />
             <Stack.Screen name="UncategorizedProducts" component={UncategorizedProductsScreen} />
+            <Stack.Screen name="AdminUsers" component={AdminUsersScreen} />
+            <Stack.Screen name="AdminCarts" component={AdminCartsScreen} />
 
         </Stack.Navigator>
     );
