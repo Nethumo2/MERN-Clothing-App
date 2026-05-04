@@ -286,6 +286,15 @@ export const updateOrderStatus = async (orderId, status) => {
     return handleResponse(res);
 };
 
+export const deleteOrder = async (orderId) => {
+    const res = await fetch(`${BASE_URL}/orders/${orderId}`, {
+        method: 'DELETE',
+        headers: await authHeaders(),
+    });
+
+    return handleResponse(res);
+};
+
 export const updateOrderShipping = async (orderId, shippingAddress) => {
     const res = await fetch(`${BASE_URL}/orders/${orderId}/shipping`, {
         method: 'PUT',

@@ -6,6 +6,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import {
   fetchCategories,
+  fetchProducts,
   fetchUncategorizedProducts,
   updateProductCategory,
 } from '../services/api';
@@ -32,19 +33,23 @@ export default function UncategorizedProductsScreen({ navigation }) {
   const { user } = useAuth();
   const isAdmin = user?.isAdmin === true;
   const [products, setProducts] = useState([]);
+  const [allProducts, setAllProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [viewMode, setViewMode] = useState('uncategorized');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const loadData = async () => {
     try {
       setLoading(true);
-      const [uncategorized, cats] = await Promise.all([
+      const [uncategorized, all, cats] = await Promise.all([
         fetchUncategorizedProducts(),
+        fetchProducts(),
         fetchCategories(),
       ]);
       setProducts(Array.isArray(uncategorized) ? uncategorized : []);
+      setAllProducts(Array.isArray(all) ? all : []);
       setCategories(Array.isArray(cats) ? cats : []);
     } catch (e) {
       showAlert('Load Failed', e.message || 'Could not load uncategorized products');
@@ -65,8 +70,8 @@ export default function UncategorizedProductsScreen({ navigation }) {
     try {
       setSaving(true);
       await updateProductCategory(selectedProduct._id, categoryId);
-      setProducts((current) => current.filter((item) => item._id !== selectedProduct._id));
       setSelectedProduct(null);
+      await loadData();
     } catch (e) {
       showAlert('Update Failed', e.message || 'Could not update product category');
     } finally {
@@ -95,6 +100,7 @@ export default function UncategorizedProductsScreen({ navigation }) {
       <View style={styles.productInfo}>
         <Text style={styles.productName} numberOfLines={1}>{item.name}</Text>
         <Text style={styles.productMeta}>LKR {Number(item.price || 0).toLocaleString()}</Text>
+        <Text style={styles.productMeta}>Category: {item.category || 'Uncategorized'}</Text>
         <Text style={styles.productMeta}>{Number(item.countInStock ?? item.stock ?? 0)} in stock</Text>
         <TouchableOpacity style={styles.assignBtn} onPress={() => setSelectedProduct(item)}>
           <Text style={styles.assignText}>Assign Category</Text>
@@ -116,20 +122,22 @@ export default function UncategorizedProductsScreen({ navigation }) {
 
   if (loading) return <ActivityIndicator size="large" color="#1B1B1B" style={styles.loader} />;
 
+  const displayedProducts = viewMode === 'all' ? allProducts : products;
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={styles.backBtn}>Back</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Uncategorized</Text>
+        <Text style={styles.headerTitle}>Categories</Text>
         <TouchableOpacity onPress={loadData}>
           <Text style={styles.refreshBtn}>Refresh</Text>
         </TouchableOpacity>
       </View>
 
       <FlatList
-        data={products}
+        data={displayedProducts}
         keyExtractor={(item) => item._id}
         renderItem={renderProduct}
         contentContainerStyle={styles.list}
@@ -140,12 +148,34 @@ export default function UncategorizedProductsScreen({ navigation }) {
             <Text style={styles.subtitle}>
               Assign these products to an existing category when the collection is ready.
             </Text>
+            <View style={styles.modeRow}>
+              <TouchableOpacity
+                style={[styles.modeBtn, viewMode === 'uncategorized' && styles.modeBtnActive]}
+                onPress={() => setViewMode('uncategorized')}
+              >
+                <Text style={[styles.modeText, viewMode === 'uncategorized' && styles.modeTextActive]}>
+                  Uncategorized
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modeBtn, viewMode === 'all' && styles.modeBtnActive]}
+                onPress={() => setViewMode('all')}
+              >
+                <Text style={[styles.modeText, viewMode === 'all' && styles.modeTextActive]}>
+                  All Products
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
         ListEmptyComponent={(
           <View style={styles.emptyBox}>
-            <Text style={styles.emptyTitle}>No uncategorized products</Text>
-            <Text style={styles.emptyText}>Every product is currently assigned.</Text>
+            <Text style={styles.emptyTitle}>
+              {viewMode === 'all' ? 'No products found' : 'No uncategorized products'}
+            </Text>
+            <Text style={styles.emptyText}>
+              {viewMode === 'all' ? 'Products will appear here after creation.' : 'Every product is currently assigned.'}
+            </Text>
           </View>
         )}
       />
@@ -203,6 +233,14 @@ const styles = StyleSheet.create({
   kicker: { color: '#9F8247', fontSize: 11, fontWeight: '900', letterSpacing: 2, marginBottom: 8 },
   title: { color: '#1B1B1B', fontFamily: 'Georgia', fontSize: 28, fontWeight: '700' },
   subtitle: { color: '#8A8175', fontSize: 14, lineHeight: 20, marginTop: 6 },
+  modeRow: { flexDirection: 'row', gap: 10, marginTop: 16 },
+  modeBtn: {
+    flex: 1, backgroundColor: '#FFFFFF', borderRadius: 12,
+    paddingVertical: 11, alignItems: 'center', borderWidth: 1, borderColor: '#E9E2D8',
+  },
+  modeBtnActive: { backgroundColor: '#BFA46A', borderColor: '#BFA46A' },
+  modeText: { color: '#3B3B3B', fontWeight: '800', fontSize: 12 },
+  modeTextActive: { color: '#FFFFFF' },
   productCard: {
     flexDirection: 'row', backgroundColor: '#FFFFFF', borderRadius: 16,
     padding: 12, marginBottom: 12, borderWidth: 1, borderColor: '#E9E2D8',

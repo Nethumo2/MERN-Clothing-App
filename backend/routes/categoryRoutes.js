@@ -4,6 +4,13 @@ const { protect, admin } = require('../middleware/auth');
 
 const router = express.Router();
 
+const toSlug = (value = '') => value
+    .toString()
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
 const normalize = (category) => {
     const obj = category.toObject ? category.toObject() : { ...category };
     obj.image = obj.image || '';
@@ -30,11 +37,30 @@ router.get('/', async (req, res) => {
 router.post('/', protect, admin, async (req, res) => {
     try {
         const { name, description, image, slug, isActive } = req.body;
-        const categoryExists = await Category.findOne({ name });
+        const normalizedName = name?.trim();
+
+        if (!normalizedName) {
+            return res.status(400).json({ message: 'Category name is required' });
+        }
+
+        const categoryExists = await Category.findOne({ name: normalizedName });
         if (categoryExists) {
             return res.status(400).json({ message: 'Category already exists' });
         }
-        const category = await Category.create({ name, description, image, slug, isActive });
+
+        const categorySlug = toSlug(slug || normalizedName);
+        const slugExists = await Category.findOne({ slug: categorySlug });
+        if (slugExists) {
+            return res.status(400).json({ message: 'Category slug already exists' });
+        }
+
+        const category = await Category.create({
+            name: normalizedName,
+            description,
+            image,
+            slug: categorySlug,
+            isActive,
+        });
         res.status(201).json(normalize(category));
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -48,10 +74,15 @@ router.put('/:id', protect, admin, async (req, res) => {
     try {
         const category = await Category.findById(req.params.id);
         if (category) {
-            category.name = req.body.name || category.name;
+            category.name = req.body.name?.trim() || category.name;
             category.description = req.body.description || category.description;
             category.image = req.body.image !== undefined ? req.body.image : category.image;
-            category.slug = req.body.slug !== undefined ? req.body.slug : category.slug;
+            const nextSlug = toSlug(req.body.slug || category.name);
+            const slugExists = await Category.findOne({ slug: nextSlug, _id: { $ne: category._id } });
+            if (slugExists) {
+                return res.status(400).json({ message: 'Category slug already exists' });
+            }
+            category.slug = nextSlug;
             category.isActive = req.body.isActive !== undefined ? req.body.isActive : category.isActive;
             const updatedCategory = await category.save();
             res.json(normalize(updatedCategory));

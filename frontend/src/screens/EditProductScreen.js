@@ -19,7 +19,6 @@ export default function EditProductScreen({ route, navigation }) {
     const [name, setName] = useState('');
     const [price, setPrice] = useState('');
     const [discountPercent, setDiscountPercent] = useState('');
-    const [category, setCategory] = useState('');
     const [description, setDescription] = useState('');
     const [countInStock, setCountInStock] = useState('');
     const [size, setSize] = useState('');
@@ -35,7 +34,6 @@ export default function EditProductScreen({ route, navigation }) {
                 setPrice(String(data.price || ''));
                 setDiscountPercent(data.discountPercent ? String(data.discountPercent) : '');
 
-                setCategory(data.category?.toString() || '');
                 setDescription(data.description || '');
                 setCountInStock(String(data.countInStock ?? data.stock ?? ''));
 
@@ -69,7 +67,6 @@ export default function EditProductScreen({ route, navigation }) {
                 name,
                 price,
                 discountPercent: discountPercent.trim() ? discountPercent : 0,
-                category: category.trim() || null,
                 description,
                 countInStock,
                 size,
@@ -115,9 +112,6 @@ export default function EditProductScreen({ route, navigation }) {
                 <Text style={styles.hint}>
                     Add a percentage to show this item in Discounts.
                 </Text>
-
-                <Text style={styles.label}>Category</Text>
-                <TextInput style={styles.input} value={category} onChangeText={setCategory} />
 
                 <Text style={styles.label}>Sizes * (comma separated)</Text>
                 <TextInput

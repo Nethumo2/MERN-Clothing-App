@@ -3,6 +3,7 @@ import {
     View, Text, Image, TouchableOpacity, StyleSheet,
     ScrollView, ActivityIndicator, Modal, Alert, Platform, useWindowDimensions
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import {
     fetchProductById,
@@ -50,6 +51,8 @@ const getProductImage = (product) => (
     product?.imageUrl || product?.images?.[0]?.url || product?.images?.[0] || 'https://via.placeholder.com/300'
 );
 
+const RECENTLY_VIEWED_KEY = 'recentlyViewed';
+
 export default function ProductDetailsScreen({ route, navigation }) {
     const { width } = useWindowDimensions();
     const { productId } = route.params;
@@ -72,6 +75,10 @@ export default function ProductDetailsScreen({ route, navigation }) {
             try {
                 const data = await fetchProductById(productId);
                 setProduct(data);
+                const stored = await AsyncStorage.getItem(RECENTLY_VIEWED_KEY);
+                const currentIds = stored ? JSON.parse(stored) : [];
+                const nextIds = [productId, ...currentIds.filter((id) => id !== productId)].slice(0, 8);
+                await AsyncStorage.setItem(RECENTLY_VIEWED_KEY, JSON.stringify(nextIds));
                 const sizeArray = data?.size || data?.sizes || [];
                 if (sizeArray.length > 0) setSelectedSize(sizeArray[0]);
             } catch (_e) {

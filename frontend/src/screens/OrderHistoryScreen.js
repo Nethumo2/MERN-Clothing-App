@@ -3,7 +3,13 @@ import {
   View, Text, FlatList, TouchableOpacity, StyleSheet, Image,
   ActivityIndicator, RefreshControl, Alert, Platform, Modal, TextInput,
 } from 'react-native';
-import { fetchAllOrders, fetchMyOrders, updateOrderShipping, updateOrderStatus } from '../services/api';
+import {
+  deleteOrder,
+  fetchAllOrders,
+  fetchMyOrders,
+  updateOrderShipping,
+  updateOrderStatus,
+} from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
 const STATUS_STYLES = {
@@ -80,7 +86,11 @@ export default function OrderHistoryScreen({ navigation }) {
   }, [loadOrders]);
 
   const handleStatusChange = (orderId, status) => {
-    const actionText = status === 'Order Placed' ? 'accept this order' : 'cancel this order';
+    const actionText = status === 'Order Placed'
+      ? 'accept this order'
+      : status === 'Order Cancelled'
+        ? 'cancel this order'
+        : 'mark this order as pending';
 
     showConfirm('Update Order', `Are you sure you want to ${actionText}?`, async () => {
       try {
@@ -92,6 +102,21 @@ export default function OrderHistoryScreen({ navigation }) {
         showAlert('Order Updated', `Order marked as ${updated.status}`);
       } catch (e) {
         showAlert('Update Failed', e.message || 'Could not update order status');
+      } finally {
+        setUpdatingId(null);
+      }
+    });
+  };
+
+  const handleDeleteOrder = (orderId) => {
+    showConfirm('Remove Order', 'Remove this order permanently?', async () => {
+      try {
+        setUpdatingId(orderId);
+        await deleteOrder(orderId);
+        setOrders((current) => current.filter((order) => order._id !== orderId));
+        showAlert('Order Removed', 'Order removed successfully');
+      } catch (e) {
+        showAlert('Remove Failed', e.message || 'Could not remove order');
       } finally {
         setUpdatingId(null);
       }
@@ -145,6 +170,7 @@ export default function OrderHistoryScreen({ navigation }) {
   const renderOrder = ({ item }) => {
     const isExpanded = expanded === item._id;
     const statusStyle = getStatusStyle(item.status);
+    const canMarkPending = isAdmin && statusStyle.label !== 'Pending';
     const canAccept = isAdmin && statusStyle.label !== 'Order Placed';
     const canCancel = isAdmin && statusStyle.label !== 'Order Cancelled';
     const isUpdating = updatingId === item._id;
@@ -185,20 +211,37 @@ export default function OrderHistoryScreen({ navigation }) {
         </View>
 
         {isAdmin ? (
-          <View style={styles.adminActions}>
+          <View style={styles.adminPanel}>
+            <Text style={styles.adminLabel}>Update Status</Text>
+            <View style={styles.adminActions}>
+              <TouchableOpacity
+                style={[styles.statusActionBtn, styles.pendingBtn, (!canMarkPending || isUpdating) && styles.disabledBtn]}
+                onPress={() => handleStatusChange(item._id, 'Pending')}
+                disabled={!canMarkPending || isUpdating}
+              >
+                <Text style={styles.pendingBtnText}>Pending</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.statusActionBtn, styles.acceptBtn, (!canAccept || isUpdating) && styles.disabledBtn]}
+                onPress={() => handleStatusChange(item._id, 'Order Placed')}
+                disabled={!canAccept || isUpdating}
+              >
+                <Text style={styles.acceptBtnText}>{isUpdating ? 'Updating...' : 'Placed'}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.statusActionBtn, styles.cancelBtn, (!canCancel || isUpdating) && styles.disabledBtn]}
+                onPress={() => handleStatusChange(item._id, 'Order Cancelled')}
+                disabled={!canCancel || isUpdating}
+              >
+                <Text style={styles.cancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
             <TouchableOpacity
-              style={[styles.statusActionBtn, styles.acceptBtn, (!canAccept || isUpdating) && styles.disabledBtn]}
-              onPress={() => handleStatusChange(item._id, 'Order Placed')}
-              disabled={!canAccept || isUpdating}
+              style={[styles.removeOrderBtn, isUpdating && styles.disabledBtn]}
+              onPress={() => handleDeleteOrder(item._id)}
+              disabled={isUpdating}
             >
-              <Text style={styles.acceptBtnText}>{isUpdating ? 'Updating...' : 'Accept Order'}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.statusActionBtn, styles.cancelBtn, (!canCancel || isUpdating) && styles.disabledBtn]}
-              onPress={() => handleStatusChange(item._id, 'Order Cancelled')}
-              disabled={!canCancel || isUpdating}
-            >
-              <Text style={styles.cancelBtnText}>Cancel Order</Text>
+              <Text style={styles.removeOrderText}>Remove Order</Text>
             </TouchableOpacity>
           </View>
         ) : null}
@@ -368,12 +411,27 @@ const styles = StyleSheet.create({
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   itemCount: { fontSize: 13, color: '#8A8175' },
   orderTotal: { fontSize: 16, fontWeight: '900', color: '#1B1B1B' },
-  adminActions: { flexDirection: 'row', gap: 10, marginTop: 14 },
+  adminPanel: {
+    marginTop: 14, backgroundColor: '#FBFAF7', borderRadius: 14,
+    padding: 12, borderWidth: 1, borderColor: '#E9E2D8',
+  },
+  adminLabel: {
+    color: '#8A8175', fontSize: 11, fontWeight: '900',
+    textTransform: 'uppercase', marginBottom: 8,
+  },
+  adminActions: { flexDirection: 'row', gap: 8 },
   statusActionBtn: { flex: 1, borderRadius: 12, paddingVertical: 12, alignItems: 'center' },
+  pendingBtn: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#BFA46A' },
+  pendingBtnText: { color: '#9F8247', fontWeight: '800', fontSize: 12 },
   acceptBtn: { backgroundColor: '#BFA46A' },
   acceptBtnText: { color: '#FFFFFF', fontWeight: '800', fontSize: 13 },
   cancelBtn: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#B63B3B' },
   cancelBtnText: { color: '#B63B3B', fontWeight: '800', fontSize: 13 },
+  removeOrderBtn: {
+    marginTop: 10, borderRadius: 12, paddingVertical: 11, alignItems: 'center',
+    backgroundColor: '#B63B3B',
+  },
+  removeOrderText: { color: '#FFFFFF', fontWeight: '800', fontSize: 13 },
   disabledBtn: { opacity: 0.45 },
   expandedDetails: { marginTop: 12 },
   divider: { height: 1, backgroundColor: '#F5F1EA', marginVertical: 12 },

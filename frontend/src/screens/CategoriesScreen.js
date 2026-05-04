@@ -58,19 +58,20 @@ export default function CategoriesScreen({ navigation }) {
   const [categoryForm, setCategoryForm] = useState(emptyCategoryForm);
   const [savingCategory, setSavingCategory] = useState(false);
 
+  const loadData = async () => {
+    try {
+      const [cats, prods] = await Promise.all([fetchCategories(), fetchProducts()]);
+      setCategories(Array.isArray(cats) ? cats : []);
+      setProducts(Array.isArray(prods) ? prods : []);
+    } catch (e) {
+      console.log(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const load = async () => {
-      try {
-        const [cats, prods] = await Promise.all([fetchCategories(), fetchProducts()]);
-        setCategories(Array.isArray(cats) ? cats : []);
-        setProducts(Array.isArray(prods) ? prods : []);
-      } catch (e) {
-        console.log(e);
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
+    loadData();
   }, []);
 
   const openCategoryModal = (category = null) => {
@@ -102,15 +103,14 @@ export default function CategoriesScreen({ navigation }) {
         description: categoryForm.description.trim(),
         image: categoryForm.image.trim(),
       };
-      const saved = editingCategory
-        ? await updateCategory(editingCategory._id, payload)
-        : await createCategory(payload);
+      if (editingCategory) {
+        await updateCategory(editingCategory._id, payload);
+      } else {
+        await createCategory(payload);
+      }
 
-      setCategories((current) => (
-        editingCategory
-          ? current.map((category) => (category._id === saved._id ? saved : category))
-          : [...current, saved]
-      ));
+      await loadData();
+      showAlert('Category Saved', editingCategory ? 'Category updated successfully' : 'Category added successfully');
       closeCategoryModal();
     } catch (e) {
       showAlert('Category Error', e.message || 'Could not save category');
@@ -123,8 +123,9 @@ export default function CategoriesScreen({ navigation }) {
     showConfirm('Delete Category', `Delete "${category.name}"?`, async () => {
       try {
         await deleteCategory(category._id);
-        setCategories((current) => current.filter((item) => item._id !== category._id));
+        await loadData();
         if (selected === category.name) setSelected(null);
+        showAlert('Category Deleted', 'Category removed successfully');
       } catch (e) {
         showAlert('Delete Failed', e.message || 'Could not delete category');
       }

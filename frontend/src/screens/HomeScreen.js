@@ -3,6 +3,7 @@ import {
     View, Text, FlatList, TouchableOpacity, StyleSheet,
     Image, TextInput, ActivityIndicator, RefreshControl, useWindowDimensions,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { fetchProducts } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -10,6 +11,7 @@ import { useCart } from '../context/CartContext';
 import { useFocusEffect } from '@react-navigation/native';
 
 const HERO_IMAGE = 'https://images.unsplash.com/photo-1496747611176-843222e1e57c?w=1200';
+const RECENTLY_VIEWED_KEY = 'recentlyViewed';
 
 export default function HomeScreen({ navigation }) {
     const { user, logout } = useAuth();
@@ -26,6 +28,7 @@ export default function HomeScreen({ navigation }) {
     const [filtered, setFiltered] = useState([]);
     const [search, setSearch] = useState('');
     const [productFilter, setProductFilter] = useState('all');
+    const [recentlyViewedIds, setRecentlyViewedIds] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
@@ -74,6 +77,20 @@ export default function HomeScreen({ navigation }) {
             setLoading(false);
             setRefreshing(false);
         }
+    };
+
+    const loadRecentlyViewed = async () => {
+        try {
+            const stored = await AsyncStorage.getItem(RECENTLY_VIEWED_KEY);
+            setRecentlyViewedIds(stored ? JSON.parse(stored) : []);
+        } catch (_e) {
+            setRecentlyViewedIds([]);
+        }
+    };
+
+    const clearRecentlyViewed = async () => {
+        await AsyncStorage.removeItem(RECENTLY_VIEWED_KEY);
+        setRecentlyViewedIds([]);
     };
     const styles = StyleSheet.create({
         container: {
@@ -301,6 +318,56 @@ export default function HomeScreen({ navigation }) {
             color: '#FFFFFF',
         },
 
+        recentHeader: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            paddingHorizontal: 16,
+            marginTop: 8,
+            marginBottom: 10,
+        },
+
+        recentTitle: {
+            color: '#1B1B1B',
+            fontFamily: 'Georgia',
+            fontSize: 20,
+            fontWeight: '700',
+        },
+
+        clearRecentText: {
+            color: '#9F8247',
+            fontSize: 12,
+            fontWeight: '800',
+        },
+
+        recentRail: {
+            paddingHorizontal: 16,
+            paddingBottom: 14,
+            gap: 10,
+        },
+
+        recentCard: {
+            width: 132,
+            backgroundColor: '#FFFFFF',
+            borderRadius: 12,
+            overflow: 'hidden',
+            borderWidth: 1,
+            borderColor: '#E9E2D8',
+        },
+
+        recentImage: {
+            width: '100%',
+            height: 148,
+            backgroundColor: '#F3EFE8',
+        },
+
+        recentName: {
+            color: '#1B1B1B',
+            fontSize: 12,
+            fontWeight: '800',
+            padding: 8,
+        },
+
         list: {
             padding: 10,
             paddingBottom: 28,
@@ -390,6 +457,7 @@ export default function HomeScreen({ navigation }) {
     useFocusEffect(
         useCallback(() => {
             loadProducts();
+            loadRecentlyViewed();
         }, [])
     );
 
@@ -413,6 +481,10 @@ export default function HomeScreen({ navigation }) {
         setRefreshing(true);
         loadProducts();
     }, []);
+
+    const recentlyViewedProducts = recentlyViewedIds
+        .map((id) => products.find((product) => product._id === id))
+        .filter(Boolean);
 
     const listHeader = (
         <>
@@ -486,6 +558,37 @@ export default function HomeScreen({ navigation }) {
                     </TouchableOpacity>
                 ))}
             </View>
+
+            {recentlyViewedProducts.length > 0 ? (
+                <View>
+                    <View style={styles.recentHeader}>
+                        <Text style={styles.recentTitle}>Recently Viewed</Text>
+                        <TouchableOpacity onPress={clearRecentlyViewed}>
+                            <Text style={styles.clearRecentText}>Clear</Text>
+                        </TouchableOpacity>
+                    </View>
+                    <FlatList
+                        horizontal
+                        data={recentlyViewedProducts}
+                        keyExtractor={(item) => item._id}
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.recentRail}
+                        renderItem={({ item }) => (
+                            <TouchableOpacity
+                                style={styles.recentCard}
+                                onPress={() => navigation.navigate('ProductDetails', { productId: item._id })}
+                            >
+                                <Image
+                                    source={{ uri: item.imageUrl || 'https://via.placeholder.com/200' }}
+                                    style={styles.recentImage}
+                                    resizeMode="cover"
+                                />
+                                <Text style={styles.recentName} numberOfLines={2}>{item.name}</Text>
+                            </TouchableOpacity>
+                        )}
+                    />
+                </View>
+            ) : null}
         </>
     );
 

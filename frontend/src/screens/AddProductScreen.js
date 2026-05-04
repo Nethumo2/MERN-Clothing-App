@@ -17,7 +17,6 @@ export default function AddProductScreen({ navigation }) {
     const [name, setName] = useState('');
     const [price, setPrice] = useState('');
     const [discountPercent, setDiscountPercent] = useState('');
-    const [category, setCategory] = useState('');
     const [description, setDescription] = useState('');
     const [countInStock, setCountInStock] = useState('');
     const [size, setSize] = useState('');
@@ -35,7 +34,7 @@ export default function AddProductScreen({ navigation }) {
                 name,
                 price,
                 discountPercent: discountPercent.trim() ? discountPercent : 0,
-                category: category.trim() || null,
+                category: null,
                 description,
                 countInStock: countInStock || 0,
                 size,
@@ -88,17 +87,6 @@ export default function AddProductScreen({ navigation }) {
                 />
                 <Text style={styles.hint}>
                     Add a percentage to show this item in Discounts.
-                </Text>
-
-                <Text style={styles.label}>Category</Text>
-                <TextInput
-                    style={styles.input}
-                    placeholder="Optional - leave empty for Uncategorized"
-                    value={category}
-                    onChangeText={setCategory}
-                />
-                <Text style={styles.hint}>
-                    Empty category products appear in the admin Uncategorized page.
                 </Text>
 
                 <Text style={styles.label}>Sizes * (comma separated)</Text>
