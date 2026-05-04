@@ -117,9 +117,21 @@ export default function ProductDetailsScreen({ route, navigation }) {
 
     const handleAddToCart = async () => {
         const sizeArray = product?.size || product?.sizes || [];
+        const stockCount = Number(product?.countInStock ?? product?.stock ?? 0);
 
         if (sizeArray.length > 0 && !selectedSize) {
             showAlert('Size Required', 'Please select a size before adding this item to cart');
+            return;
+        }
+
+        if (!Number.isFinite(stockCount) || stockCount < 1) {
+            showAlert('Out of Stock', 'This product is currently out of stock');
+            return;
+        }
+
+        if (quantity > stockCount) {
+            showAlert('Stock Limit', `Only ${stockCount} item${stockCount === 1 ? '' : 's'} available`);
+            setQuantity(stockCount);
             return;
         }
 
@@ -153,6 +165,9 @@ export default function ProductDetailsScreen({ route, navigation }) {
 
     const sizeArray = product?.size || product?.sizes || [];
     const discountPercent = getDiscountPercent(product);
+    const stockCount = Number(product?.countInStock ?? product?.stock ?? 0);
+    const hasStock = Number.isFinite(stockCount) && stockCount > 0;
+    const canIncreaseQuantity = hasStock && quantity < stockCount;
 
     return (
         <View style={styles.wrapper}>
@@ -228,10 +243,17 @@ export default function ProductDetailsScreen({ route, navigation }) {
                                     <Text style={styles.qtyBtnText}>−</Text>
                                 </TouchableOpacity>
                                 <Text style={styles.qtyValue}>{quantity}</Text>
-                                <TouchableOpacity style={styles.qtyBtn} onPress={() => setQuantity(q => q + 1)}>
+                                <TouchableOpacity
+                                    style={[styles.qtyBtn, !canIncreaseQuantity && styles.disabledQtyBtn]}
+                                    onPress={() => setQuantity(q => Math.min(stockCount, q + 1))}
+                                    disabled={!canIncreaseQuantity}
+                                >
                                     <Text style={styles.qtyBtnText}>+</Text>
                                 </TouchableOpacity>
                             </View>
+                            <Text style={styles.stockText}>
+                                {hasStock ? `${stockCount} available` : 'Out of stock'}
+                            </Text>
                         </View>
                     )}
 
@@ -257,9 +279,9 @@ export default function ProductDetailsScreen({ route, navigation }) {
                     {/* USER CONTROLS FOR ADD TO CART*/}
                     {!isAdmin && (
                         <TouchableOpacity
-                            style={[styles.cartBtn, addingToCart && { opacity: 0.65 }]}
+                            style={[styles.cartBtn, (addingToCart || !hasStock) && { opacity: 0.65 }]}
                             onPress={handleAddToCart}
-                            disabled={addingToCart}
+                            disabled={addingToCart || !hasStock}
                         >
                             <Text style={styles.btnText}>
                                 {addingToCart ? 'Adding...' : '🛒 Add to Cart'}
@@ -385,8 +407,10 @@ const styles = StyleSheet.create({
         width: 42, height: 42, borderRadius: 12,
         backgroundColor: '#1B1B1B', alignItems: 'center', justifyContent: 'center',
     },
+    disabledQtyBtn: { opacity: 0.4 },
     qtyBtnText: { color: '#FFFFFF', fontSize: 22 },
     qtyValue: { fontSize: 22, fontWeight: '800', color: '#1B1B1B', minWidth: 30, textAlign: 'center' },
+    stockText: { color: '#8A8175', fontSize: 12, fontWeight: '700', marginTop: 8 },
     adminBox: { gap: 12, marginTop: 10 },
     editBtn: {
         backgroundColor: '#BFA46A', padding: 16,

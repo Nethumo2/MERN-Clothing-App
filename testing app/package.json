@@ -4,7 +4,9 @@
   "private": true,
   "scripts": {
     "test": "jest --runInBand",
-    "test:cart": "jest Cart.test.js --runInBand"
+    "test:cart": "jest Cart.test.js --runInBand",
+    "test:home": "jest Home.test.js --runInBand",
+    "test:product": "jest ProductDetails.test.js --runInBand"
   },
   "devDependencies": {
     "@testing-library/react-native": "^13.3.3",

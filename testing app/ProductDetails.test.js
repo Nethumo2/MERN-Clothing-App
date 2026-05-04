@@ -8,11 +8,11 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
     getItem: jest.fn(),
     setItem: jest.fn(),
     removeItem: jest.fn(),
-}));
+}), { virtual: true });
 
 global.fetch = jest.fn();
 
-const BASE_URL = 'http://10.92.115.223:5000/api';
+const BASE_URL = 'http://localhost:5000/api';
 
 const AsyncStorage = require('@react-native-async-storage/async-storage');
 
@@ -23,7 +23,7 @@ const fetchProductById = async (id) => {
     return data;
 };
 
-const addToCart = async (productId, quantity, size, price) => {
+const addToCart = async (productId, quantity, size) => {
     const token = await AsyncStorage.getItem('userToken');
     const res = await fetch(`${BASE_URL}/cart/add`, {
         method: 'POST',
@@ -31,7 +31,7 @@ const addToCart = async (productId, quantity, size, price) => {
             'Content-Type': 'application/json',
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ productId, quantity, size, price }),
+        body: JSON.stringify({ productId, quantity, size }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data?.message || 'Something went wrong');
@@ -166,7 +166,7 @@ describe('addToCart', () => {
         };
         mockFetchSuccess(mockCart);
 
-        const result = await addToCart('product123', 1, 'M', 3000);
+        const result = await addToCart('product123', 1, 'M');
 
         expect(result).toEqual(mockCart);
         expect(result.totalPrice).toBe(3000);
@@ -176,7 +176,7 @@ describe('addToCart', () => {
         AsyncStorage.getItem.mockResolvedValueOnce('mock-jwt-token');
         mockFetchSuccess({ items: [] });
 
-        await addToCart('product123', 2, 'L', 1500);
+        await addToCart('product123', 2, 'L');
 
         const callArgs = fetch.mock.calls[0];
         const body = JSON.parse(callArgs[1].body);
@@ -184,7 +184,7 @@ describe('addToCart', () => {
         expect(body.productId).toBe('product123');
         expect(body.quantity).toBe(2);
         expect(body.size).toBe('L');
-        expect(body.price).toBe(1500);
+        expect(body.price).toBeUndefined();
     });
 
     test('should include Authorization header with token', async () => {
@@ -192,7 +192,7 @@ describe('addToCart', () => {
         AsyncStorage.getItem.mockResolvedValueOnce(mockToken);
         mockFetchSuccess({ items: [] });
 
-        await addToCart('product123', 1, 'S', 1000);
+        await addToCart('product123', 1, 'S');
 
         const callArgs = fetch.mock.calls[0];
         expect(callArgs[1].headers.Authorization).toBe(`Bearer ${mockToken}`);
@@ -202,7 +202,7 @@ describe('addToCart', () => {
         AsyncStorage.getItem.mockResolvedValueOnce('invalid-token');
         mockFetchFail('Not authorized, token failed', 401);
 
-        await expect(addToCart('product123', 1, 'M', 3000))
+        await expect(addToCart('product123', 1, 'M'))
             .rejects.toThrow('Not authorized, token failed');
     });
 
@@ -210,7 +210,7 @@ describe('addToCart', () => {
         AsyncStorage.getItem.mockResolvedValueOnce('mock-token');
         mockFetchSuccess({ items: [] });
 
-        await addToCart('product123', 1, 'M', 1000);
+        await addToCart('product123', 1, 'M');
 
         const callArgs = fetch.mock.calls[0];
         expect(callArgs[1].method).toBe('POST');
@@ -391,9 +391,16 @@ describe('Product Details Business Logic', () => {
     test('should normalize imageUrl from database', () => {
         const normalizeImage = (data) =>
             data?.imageUrl ||
+            data?.imageURL ||
+            data?.image ||
+            data?.thumbnail ||
             data?.images?.[0]?.url ||
+            data?.images?.[0]?.src ||
+            data?.images?.[0]?.secure_url ||
+            data?.images?.[0]?.imageUrl ||
+            data?.images?.[0]?.image ||
             data?.images?.[0] ||
-            'https://via.placeholder.com/300';
+            'https://via.placeholder.com/500x650?text=LUSH';
 
         expect(normalizeImage({ imageUrl: 'https://example.com/img.jpg' }))
             .toBe('https://example.com/img.jpg');
@@ -401,8 +408,11 @@ describe('Product Details Business Logic', () => {
         expect(normalizeImage({ images: [{ url: 'https://example.com/img2.jpg' }] }))
             .toBe('https://example.com/img2.jpg');
 
+        expect(normalizeImage({ images: [{ secure_url: 'https://example.com/img3.jpg' }] }))
+            .toBe('https://example.com/img3.jpg');
+
         expect(normalizeImage({}))
-            .toBe('https://via.placeholder.com/300');
+            .toBe('https://via.placeholder.com/500x650?text=LUSH');
     });
 
     test('should detect admin user correctly', () => {
