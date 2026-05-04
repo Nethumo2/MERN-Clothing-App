@@ -6,7 +6,8 @@
     "test": "jest --runInBand",
     "test:cart": "jest Cart.test.js --runInBand",
     "test:home": "jest Home.test.js --runInBand",
-    "test:product": "jest ProductDetails.test.js --runInBand"
+    "test:product": "jest ProductDetails.test.js --runInBand",
+    "test:checkout": "jest Checkout.test.js --runInBand"
   },
   "devDependencies": {
     "@testing-library/react-native": "^13.3.3",
