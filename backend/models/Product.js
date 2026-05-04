@@ -21,7 +21,8 @@ const productSchema = new mongoose.Schema({
     },
     category: {
         type: mongoose.Schema.Types.Mixed,
-        required: true,
+        required: false,
+        default: null,
     },
     imageUrl: {
         type: String,

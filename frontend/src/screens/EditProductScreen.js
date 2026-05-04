@@ -69,7 +69,7 @@ export default function EditProductScreen({ route, navigation }) {
                 name,
                 price,
                 discountPercent: discountPercent.trim() ? discountPercent : 0,
-                category,
+                category: category.trim() || null,
                 description,
                 countInStock,
                 size,

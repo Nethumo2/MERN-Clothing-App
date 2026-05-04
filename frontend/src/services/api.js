@@ -84,6 +84,11 @@ export const fetchProducts = async () => {
     return handleResponse(res);
 };
 
+export const fetchUncategorizedProducts = async () => {
+    const res = await fetch(`${BASE_URL}/products?categoryStatus=uncategorized`);
+    return handleResponse(res);
+};
+
 export const fetchProductById = async (id) => {
     const res = await fetch(`${BASE_URL}/products/${id}`);
     return handleResponse(res);
@@ -147,6 +152,16 @@ export const deleteProduct = async (id, token) => {
 
 export const fetchCategories = async () => {
     const res = await fetch(`${BASE_URL}/categories`);
+    return handleResponse(res);
+};
+
+export const updateProductCategory = async (id, category) => {
+    const res = await fetch(`${BASE_URL}/products/${id}/category`, {
+        method: 'PATCH',
+        headers: await authHeaders(),
+        body: JSON.stringify({ category }),
+    });
+
     return handleResponse(res);
 };
 

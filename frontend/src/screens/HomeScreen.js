@@ -146,16 +146,37 @@ export default function HomeScreen({ navigation }) {
         },
 
         adminAddBtn: {
+            flex: 1,
             backgroundColor: '#BFA46A',
-            margin: 10,
             padding: 12,
             borderRadius: 12,
             alignItems: 'center',
         },
 
+        adminActions: {
+            flexDirection: 'row',
+            gap: 10,
+            margin: 10,
+        },
+
         adminAddText: {
             color: '#FFFFFF',
             fontWeight: '700',
+        },
+
+        adminGhostBtn: {
+            flex: 1,
+            backgroundColor: '#FFFFFF',
+            borderWidth: 1,
+            borderColor: '#BFA46A',
+            padding: 12,
+            borderRadius: 12,
+            alignItems: 'center',
+        },
+
+        adminGhostText: {
+            color: '#9F8247',
+            fontWeight: '800',
         },
 
         search: {
@@ -396,12 +417,20 @@ export default function HomeScreen({ navigation }) {
     const listHeader = (
         <>
             {isAdmin && (
-                <TouchableOpacity
-                    style={styles.adminAddBtn}
-                    onPress={() => navigation.navigate('AddProduct')}
-                >
-                    <Text style={styles.adminAddText}>Add New Product</Text>
-                </TouchableOpacity>
+                <View style={styles.adminActions}>
+                    <TouchableOpacity
+                        style={styles.adminAddBtn}
+                        onPress={() => navigation.navigate('AddProduct')}
+                    >
+                        <Text style={styles.adminAddText}>Add New Product</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={styles.adminGhostBtn}
+                        onPress={() => navigation.navigate('UncategorizedProducts')}
+                    >
+                        <Text style={styles.adminGhostText}>Uncategorized</Text>
+                    </TouchableOpacity>
+                </View>
             )}
 
             <View style={styles.hero}>

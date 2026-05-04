@@ -25,8 +25,8 @@ export default function AddProductScreen({ navigation }) {
     const [loading, setLoading] = useState(false);
 
     const handleSubmit = async () => {
-        if (!name || !price || !category || !size) {
-            showAlert('Error', 'Please fill name, price, category and size');
+        if (!name || !price || !size) {
+            showAlert('Error', 'Please fill name, price and size');
             return;
         }
         setLoading(true);
@@ -35,7 +35,7 @@ export default function AddProductScreen({ navigation }) {
                 name,
                 price,
                 discountPercent: discountPercent.trim() ? discountPercent : 0,
-                category,
+                category: category.trim() || null,
                 description,
                 countInStock: countInStock || 0,
                 size,
@@ -90,13 +90,16 @@ export default function AddProductScreen({ navigation }) {
                     Add a percentage to show this item in Discounts.
                 </Text>
 
-                <Text style={styles.label}>Category *</Text>
+                <Text style={styles.label}>Category</Text>
                 <TextInput
                     style={styles.input}
-                    placeholder="e.g. T-Shirts"
+                    placeholder="Optional - leave empty for Uncategorized"
                     value={category}
                     onChangeText={setCategory}
                 />
+                <Text style={styles.hint}>
+                    Empty category products appear in the admin Uncategorized page.
+                </Text>
 
                 <Text style={styles.label}>Sizes * (comma separated)</Text>
                 <TextInput

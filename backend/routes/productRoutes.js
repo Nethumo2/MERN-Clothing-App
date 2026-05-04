@@ -17,6 +17,13 @@ const getCategoryId = (category) => {
     return category.toString();
 };
 
+const normalizeCategoryValue = (category) => {
+    if (category === undefined) return undefined;
+    if (category === null) return null;
+    if (typeof category === 'string' && !category.trim()) return null;
+    return category;
+};
+
 const loadCategoryMap = async (products) => {
     const categoryIds = products
         .map((product) => getCategoryId(product.category))
@@ -71,7 +78,10 @@ const normalize = (product, categoryMap = new Map()) => {
 // @access  Public
 router.get('/', async (req, res) => {
     try {
-        const products = await Product.find({}).lean();
+        const query = req.query.categoryStatus === 'uncategorized'
+            ? { $or: [{ category: null }, { category: '' }, { category: { $exists: false } }] }
+            : {};
+        const products = await Product.find(query).lean();
         const categoryMap = await loadCategoryMap(products);
         res.json(products.map((product) => normalize(product, categoryMap)));
     } catch (error) {
@@ -113,7 +123,7 @@ router.post('/', protect, admin, async (req, res) => {
             description,
             size: typeof productSizes === 'string' ? productSizes.split(',').map((s) => s.trim()) : productSizes,
             sizes: typeof productSizes === 'string' ? productSizes.split(',').map((s) => s.trim()) : productSizes,
-            category,
+            category: normalizeCategoryValue(category),
             countInStock: countInStock ?? stock ?? 0,
             stock: stock ?? countInStock ?? 0,
             imageUrl: imageUrl || 'https://via.placeholder.com/300x300?text=No+Image',
@@ -150,7 +160,7 @@ router.put('/:id', protect, admin, async (req, res) => {
             product.description = description || product.description;
             product.countInStock = countInStock !== undefined ? countInStock : (stock !== undefined ? stock : product.countInStock);
             product.stock = stock !== undefined ? stock : (countInStock !== undefined ? countInStock : product.stock);
-            product.category = category || product.category;
+            if (category !== undefined) product.category = normalizeCategoryValue(category);
             const productSizes = size || sizes;
             if (productSizes) {
                 const normalizedSizes = typeof productSizes === 'string'
@@ -167,6 +177,26 @@ router.put('/:id', protect, admin, async (req, res) => {
         } else {
             res.status(404).json({ message: 'Product not found' });
         }
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// @desc    Update only product category
+// @route   PATCH /api/products/:id/category
+// @access  Private/Admin
+router.patch('/:id/category', protect, admin, async (req, res) => {
+    try {
+        const product = await Product.findById(req.params.id);
+
+        if (!product) {
+            return res.status(404).json({ message: 'Product not found' });
+        }
+
+        product.category = normalizeCategoryValue(req.body.category);
+        const updatedProduct = await product.save();
+        const categoryMap = await loadCategoryMap([updatedProduct]);
+        res.json(normalize(updatedProduct, categoryMap));
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
