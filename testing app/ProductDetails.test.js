@@ -4,22 +4,18 @@
  * Component: Product Details Screen
  */
 
-// ─── Mock AsyncStorage ────────────────────────────────────────────────────────
 jest.mock('@react-native-async-storage/async-storage', () => ({
     getItem: jest.fn(),
     setItem: jest.fn(),
     removeItem: jest.fn(),
 }));
 
-// ─── Mock fetch ───────────────────────────────────────────────────────────────
 global.fetch = jest.fn();
 
 const BASE_URL = 'http://10.92.115.223:5000/api';
 
-// ─── Import AsyncStorage ──────────────────────────────────────────────────────
 const AsyncStorage = require('@react-native-async-storage/async-storage');
 
-// ─── Recreate API functions (mirrors services/api.js) ─────────────────────────
 const fetchProductById = async (id) => {
     const res = await fetch(`${BASE_URL}/products/${id}`);
     const data = await res.json();
@@ -69,7 +65,6 @@ const updateProduct = async (id, product) => {
     return data;
 };
 
-// ─── Helper: mock successful fetch response ───────────────────────────────────
 const mockFetchSuccess = (data) => {
     fetch.mockResolvedValueOnce({
         ok: true,
@@ -77,7 +72,6 @@ const mockFetchSuccess = (data) => {
     });
 };
 
-// ─── Helper: mock failed fetch response ───────────────────────────────────────
 const mockFetchFail = (message, status = 400) => {
     fetch.mockResolvedValueOnce({
         ok: false,
