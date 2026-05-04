@@ -54,34 +54,39 @@ const recalculateCartTotal = async (items) => {
   }, 0);
 };
 
-const cartItemKey = (productId, size = '') => `${productId || ''}::${size || ''}`;
-
 const removeOrderedItemsFromCart = async ({ userId, cartItemIds = [], orderItems = [] }) => {
+  const idsToRemove = (Array.isArray(cartItemIds) ? cartItemIds : [])
+    .map((id) => id?.toString())
+    .filter(Boolean);
+
+  if (idsToRemove.length > 0) {
+    await Cart.updateOne(
+      { user: userId },
+      { $pull: { items: { _id: { $in: idsToRemove } } } }
+    );
+  }
+
+  for (const item of orderItems) {
+    await Cart.updateOne(
+      { user: userId },
+      {
+        $pull: {
+          items: {
+            product: item.product,
+            size: item.size || '',
+          },
+        },
+      }
+    );
+  }
+
   const cart = await Cart.findOne({ user: userId }).lean();
 
   if (!cart) return;
 
-  const idsToRemove = new Set(
-    (Array.isArray(cartItemIds) ? cartItemIds : [])
-      .map((id) => id?.toString())
-      .filter(Boolean)
-  );
-  const orderedKeys = new Set(
-    orderItems.map((item) => cartItemKey(item.product?.toString(), item.size))
-  );
-
-  const remainingItems = cart.items.filter((item) => {
-    const itemId = item._id.toString();
-    const productId = getCartProductId(item);
-    const key = cartItemKey(productId, item.size);
-    return !idsToRemove.has(itemId) && !orderedKeys.has(key);
-  });
-
-  const totalPrice = await recalculateCartTotal(remainingItems);
-
   await Cart.updateOne(
     { _id: cart._id },
-    { $set: { items: remainingItems, totalPrice } }
+    { $set: { totalPrice: await recalculateCartTotal(cart.items) } }
   );
 };
 

@@ -245,14 +245,19 @@ router.post('/remove-selected', protect, async (req, res) => {
             return res.status(404).json({ message: 'Cart not found' });
         }
 
-        const idsToRemove = new Set(itemIds);
-        const remainingItems = cart.items.filter((item) => !idsToRemove.has(item._id.toString()));
-        const totalPrice = await recalculateTotalFromProducts(remainingItems);
-
         await Cart.updateOne(
             { _id: cart._id },
-            { $set: { items: remainingItems, totalPrice } }
+            { $pull: { items: { _id: { $in: itemIds } } } }
         );
+
+        const updatedCartData = await Cart.findById(cart._id).lean();
+
+        if (updatedCartData) {
+            await Cart.updateOne(
+                { _id: cart._id },
+                { $set: { totalPrice: await recalculateTotalFromProducts(updatedCartData.items) } }
+            );
+        }
 
         const updatedCart = await populateCart(cart._id);
         res.json(await toResponseCart(updatedCart));
