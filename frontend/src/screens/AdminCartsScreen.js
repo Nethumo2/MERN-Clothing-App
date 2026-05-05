@@ -4,7 +4,7 @@ import {
   ActivityIndicator, RefreshControl, Image, Alert, Platform,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { fetchAllCarts } from '../services/api';
+import { fetchAllCarts, updateCartVoucherStatus } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
 const showAlert = (title, message) => {
@@ -68,9 +68,21 @@ export default function AdminCartsScreen({ navigation }) {
     loadCarts();
   };
 
+  const handleVoucherStatus = async (cartId, status) => {
+    try {
+      await updateCartVoucherStatus(cartId, status);
+      await loadCarts();
+      showAlert('Voucher Updated', `Voucher ${status.toLowerCase()} successfully`);
+    } catch (e) {
+      showAlert('Voucher Error', e.message || 'Could not update voucher');
+    }
+  };
+
   const renderCart = ({ item }) => {
     const items = item.items || [];
     const itemCount = items.reduce((total, cartItem) => total + Number(cartItem.quantity || 0), 0);
+    const voucher = item.voucher || {};
+    const hasVoucher = voucher.image && Number(voucher.amount || 0) > 0;
 
     return (
       <View style={styles.cartCard}>
@@ -89,6 +101,31 @@ export default function AdminCartsScreen({ navigation }) {
           <Text style={styles.totalValue}>LKR {Number(item.totalPrice || 0).toLocaleString()}</Text>
         </View>
         <Text style={styles.updatedText}>Updated {formatDate(item.updatedAt)}</Text>
+
+        {hasVoucher ? (
+          <View style={styles.voucherBox}>
+            <Image source={{ uri: voucher.image }} style={styles.voucherImage} resizeMode="cover" />
+            <View style={styles.voucherInfo}>
+              <Text style={styles.voucherTitle}>Voucher Available</Text>
+              <Text style={styles.voucherMeta}>Amount: LKR {Number(voucher.amount || 0).toLocaleString()}</Text>
+              <Text style={styles.voucherMeta}>Status: {voucher.status || 'Pending'}</Text>
+              <View style={styles.voucherActions}>
+                <TouchableOpacity
+                  style={[styles.voucherActionBtn, styles.acceptBtn]}
+                  onPress={() => handleVoucherStatus(item._id, 'Accepted')}
+                >
+                  <Text style={styles.voucherActionText}>Accept</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.voucherActionBtn, styles.rejectBtn]}
+                  onPress={() => handleVoucherStatus(item._id, 'Rejected')}
+                >
+                  <Text style={styles.voucherActionText}>Reject</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        ) : null}
 
         {items.length === 0 ? (
           <Text style={styles.emptyCartText}>Cart is empty</Text>
@@ -189,6 +226,20 @@ const styles = StyleSheet.create({
   summaryLabel: { color: '#8A8175', fontWeight: '800', fontSize: 12 },
   totalValue: { color: '#1B1B1B', fontWeight: '900', fontSize: 15 },
   updatedText: { color: '#8A8175', fontSize: 11, fontWeight: '700', marginTop: 4 },
+  voucherBox: {
+    flexDirection: 'row', gap: 10, backgroundColor: '#FFFCF4',
+    borderWidth: 1, borderColor: '#BFA46A', borderRadius: 12,
+    padding: 10, marginTop: 12,
+  },
+  voucherImage: { width: 78, height: 78, borderRadius: 10, backgroundColor: '#F3EFE8' },
+  voucherInfo: { flex: 1 },
+  voucherTitle: { color: '#1B1B1B', fontWeight: '900', fontSize: 13, marginBottom: 4 },
+  voucherMeta: { color: '#3B3B3B', fontWeight: '700', fontSize: 12, marginTop: 2 },
+  voucherActions: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  voucherActionBtn: { borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12 },
+  acceptBtn: { backgroundColor: '#0F3D33' },
+  rejectBtn: { backgroundColor: '#B63B3B' },
+  voucherActionText: { color: '#FFFFFF', fontWeight: '900', fontSize: 11 },
   itemRow: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     backgroundColor: '#FBFAF7', borderRadius: 12, padding: 8, marginTop: 10,

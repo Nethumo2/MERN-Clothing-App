@@ -1,9 +1,10 @@
 import React, { useCallback, useState } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
-  Image, ActivityIndicator, Alert, Platform,
+  Image, ActivityIndicator, Alert, Platform, TextInput,
 } from 'react-native';
-import { fetchCart, removeFromCart, clearCart, updateCartItem } from '../services/api';
+import * as ImagePicker from 'expo-image-picker';
+import { fetchCart, removeFromCart, clearCart, updateCartItem, updateCartVoucher } from '../services/api';
 import { useCart } from '../context/CartContext';
 import { useFocusEffect } from '@react-navigation/native';
 
@@ -45,12 +46,17 @@ export default function CartScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [updatingItemId, setUpdatingItemId] = useState(null);
   const [selectedItemIds, setSelectedItemIds] = useState([]);
+  const [voucherAmount, setVoucherAmount] = useState('');
+  const [voucherFile, setVoucherFile] = useState(null);
+  const [voucherSaving, setVoucherSaving] = useState(false);
 
   const loadCart = async () => {
     try {
       setLoading(true);
       const data = await fetchCart();
       setCart(data);
+      setVoucherAmount(data?.voucher?.amount ? String(data.voucher.amount) : '');
+      setVoucherFile(null);
       setSelectedItemIds([]);
     } catch (e) {
       console.log(e);
@@ -108,6 +114,72 @@ export default function CartScreen({ navigation }) {
         showAlert('Error', 'Failed to clear cart');
       }
     });
+  };
+
+  const pickVoucherImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      setVoucherFile(result.assets[0]);
+    }
+  };
+
+  const buildVoucherFormData = async () => {
+    const payload = new FormData();
+    payload.append('amount', voucherAmount);
+
+    if (Platform.OS === 'web') {
+      if (voucherFile.file) {
+        payload.append('voucher', voucherFile.file);
+      } else {
+        const response = await fetch(voucherFile.uri);
+        const blob = await response.blob();
+        payload.append('voucher', blob, voucherFile.fileName || 'voucher.jpg');
+      }
+    } else {
+      const localUri = voucherFile.uri;
+      let filename = voucherFile.fileName || localUri.split('/').pop() || 'voucher.jpg';
+      if (!filename.includes('.')) filename += '.jpg';
+      const type = voucherFile.mimeType || 'image/jpeg';
+
+      payload.append('voucher', {
+        uri: localUri,
+        name: filename,
+        type,
+      });
+    }
+
+    return payload;
+  };
+
+  const handleVoucherSubmit = async () => {
+    if (!voucherFile) {
+      showAlert('Voucher Image Required', 'Please choose a voucher image');
+      return;
+    }
+
+    if (!Number.isFinite(Number(voucherAmount)) || Number(voucherAmount) <= 0) {
+      showAlert('Voucher Amount Required', 'Please enter a valid voucher amount');
+      return;
+    }
+
+    try {
+      setVoucherSaving(true);
+      const updated = await updateCartVoucher(await buildVoucherFormData());
+      setCart(updated);
+      setVoucherFile(null);
+      refreshCart();
+      showAlert('Voucher Submitted', 'Admin can now accept or reject this voucher');
+    } catch (e) {
+      showAlert('Voucher Error', e.message || 'Failed to submit voucher');
+    } finally {
+      setVoucherSaving(false);
+    }
   };
 
   const toggleItemSelection = (itemId) => {
@@ -198,6 +270,10 @@ export default function CartScreen({ navigation }) {
     return total + price * quantity;
   }, 0);
   const allSelected = items.length > 0 && selectedItemIds.length === items.length;
+  const voucher = cart?.voucher || {};
+  const voucherAccepted = voucher.status === 'Accepted' && Number(voucher.amount || 0) > 0;
+  const voucherDiscount = voucherAccepted ? Math.min(Number(voucher.amount || 0), selectedTotal) : 0;
+  const payableTotal = Math.max(selectedTotal - voucherDiscount, 0);
 
   const handleCheckout = () => {
     if (selectedItems.length === 0) {
@@ -206,7 +282,7 @@ export default function CartScreen({ navigation }) {
     }
 
     navigation.navigate('Checkout', {
-      cart: { ...cart, items: selectedItems, totalPrice: selectedTotal },
+      cart: { ...cart, items: selectedItems, totalPrice: payableTotal },
       selectedItemIds,
     });
   };
@@ -241,6 +317,40 @@ export default function CartScreen({ navigation }) {
             </TouchableOpacity>
             <Text style={styles.selectedCount}>{selectedItems.length} of {items.length} selected</Text>
           </View>
+          <View style={styles.voucherBox}>
+            <Text style={styles.voucherTitle}>Voucher Request</Text>
+            {voucher.image ? (
+              <View style={styles.voucherCurrentRow}>
+                <Image source={{ uri: voucher.image }} style={styles.voucherImage} resizeMode="cover" />
+                <View style={styles.voucherInfo}>
+                  <Text style={styles.voucherMeta}>Amount: LKR {Number(voucher.amount || 0).toLocaleString()}</Text>
+                  <Text style={styles.voucherMeta}>Status: {voucher.status || 'Pending'}</Text>
+                  {voucherAccepted ? <Text style={styles.voucherAccepted}>Discount will apply at checkout</Text> : null}
+                </View>
+              </View>
+            ) : null}
+            <TextInput
+              style={styles.voucherInput}
+              placeholder="Voucher amount"
+              placeholderTextColor="#8A8175"
+              keyboardType="numeric"
+              value={voucherAmount}
+              onChangeText={setVoucherAmount}
+            />
+            <TouchableOpacity style={styles.voucherPickBtn} onPress={pickVoucherImage}>
+              <Text style={styles.voucherPickText}>{voucherFile ? 'Change Voucher Image' : 'Choose Voucher Image'}</Text>
+            </TouchableOpacity>
+            {voucherFile ? (
+              <Image source={{ uri: voucherFile.uri }} style={styles.voucherPreview} resizeMode="cover" />
+            ) : null}
+            <TouchableOpacity
+              style={[styles.voucherSubmitBtn, voucherSaving && styles.disabledBtn]}
+              onPress={handleVoucherSubmit}
+              disabled={voucherSaving}
+            >
+              <Text style={styles.voucherSubmitText}>{voucherSaving ? 'Submitting...' : 'Submit Voucher'}</Text>
+            </TouchableOpacity>
+          </View>
           <FlatList
             data={items}
             keyExtractor={(item) => item._id}
@@ -252,6 +362,18 @@ export default function CartScreen({ navigation }) {
               <Text style={styles.totalLabel}>Selected ({quantityTotal} items)</Text>
               <Text style={styles.totalValue}>LKR {selectedTotal.toLocaleString()}</Text>
             </View>
+            {voucherAccepted ? (
+              <View style={styles.totalRow}>
+                <Text style={styles.totalLabel}>Accepted voucher</Text>
+                <Text style={styles.discountValue}>- LKR {voucherDiscount.toLocaleString()}</Text>
+              </View>
+            ) : null}
+            {voucherAccepted ? (
+              <View style={styles.totalRow}>
+                <Text style={styles.totalLabel}>Payable</Text>
+                <Text style={styles.totalValue}>LKR {payableTotal.toLocaleString()}</Text>
+              </View>
+            ) : null}
             <TouchableOpacity
               style={[styles.checkoutBtn, selectedItems.length === 0 && styles.disabledBtn]}
               onPress={handleCheckout}
@@ -286,6 +408,31 @@ const styles = StyleSheet.create({
   },
   selectAllText: { color: '#9F8247', fontWeight: '800', fontSize: 13 },
   selectedCount: { color: '#8A8175', fontWeight: '700', fontSize: 12 },
+  voucherBox: {
+    backgroundColor: '#FFFFFF', borderRadius: 16, padding: 14, marginHorizontal: 14, marginTop: 8, marginBottom: 10,
+    borderWidth: 1, borderColor: '#E9E2D8',
+    shadowColor: '#1B1B1B', shadowOpacity: 0.04, shadowRadius: 12, elevation: 2,
+  },
+  voucherTitle: { color: '#1B1B1B', fontWeight: '900', fontSize: 15, marginBottom: 10 },
+  voucherCurrentRow: { flexDirection: 'row', gap: 10, marginBottom: 10, alignItems: 'center' },
+  voucherImage: { width: 72, height: 72, borderRadius: 12, backgroundColor: '#F5F1EA' },
+  voucherInfo: { flex: 1 },
+  voucherMeta: { color: '#3B3B3B', fontWeight: '700', fontSize: 12, marginBottom: 3 },
+  voucherAccepted: { color: '#0F3D33', fontWeight: '900', fontSize: 12 },
+  voucherInput: {
+    backgroundColor: '#FBFAF7', borderWidth: 1, borderColor: '#E9E2D8',
+    borderRadius: 12, padding: 12, color: '#1B1B1B', marginBottom: 10,
+  },
+  voucherPickBtn: {
+    backgroundColor: '#F5F1EA', borderWidth: 1, borderColor: '#E9E2D8',
+    borderRadius: 12, padding: 12, alignItems: 'center',
+  },
+  voucherPickText: { color: '#9F8247', fontWeight: '800' },
+  voucherPreview: { width: '100%', height: 150, borderRadius: 12, marginTop: 10 },
+  voucherSubmitBtn: {
+    backgroundColor: '#BFA46A', borderRadius: 12, padding: 13, alignItems: 'center', marginTop: 10,
+  },
+  voucherSubmitText: { color: '#FFFFFF', fontWeight: '900' },
   cartItem: {
     flexDirection: 'row', backgroundColor: '#FFFFFF', borderRadius: 16,
     padding: 12, marginBottom: 12, borderWidth: 1, borderColor: 'transparent',
@@ -334,6 +481,7 @@ const styles = StyleSheet.create({
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 14 },
   totalLabel: { fontSize: 15, color: '#8A8175' },
   totalValue: { fontSize: 20, fontWeight: '900', color: '#1B1B1B' },
+  discountValue: { fontSize: 16, fontWeight: '900', color: '#0F3D33' },
   checkoutBtn: {
     backgroundColor: '#BFA46A', borderRadius: 16, padding: 16, alignItems: 'center',
     shadowColor: '#BFA46A', shadowOpacity: 0.22, shadowRadius: 14, elevation: 4,

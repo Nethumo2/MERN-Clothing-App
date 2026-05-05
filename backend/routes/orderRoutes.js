@@ -57,16 +57,18 @@ const normalizeShippingAddress = (shippingAddress) => ({
   phoneNumber: shippingAddress.phoneNumber.trim(),
 });
 
-const calculateOrderTotals = (orderItems) => {
+const calculateOrderTotals = (orderItems, discountPrice = 0) => {
   const itemsPrice = orderItems.reduce(
     (total, item) => total + Number(item.price || 0) * Number(item.qty || 0),
     0
   );
   const shippingPrice = itemsPrice > 0 ? 200 : 0;
   const taxPrice = itemsPrice * 0.08;
-  const totalPrice = itemsPrice + shippingPrice + taxPrice;
+  const payableBeforeDiscount = itemsPrice + shippingPrice + taxPrice;
+  const safeDiscount = Math.min(Math.max(Number(discountPrice) || 0, 0), payableBeforeDiscount);
+  const totalPrice = payableBeforeDiscount - safeDiscount;
 
-  return { itemsPrice, shippingPrice, taxPrice, totalPrice };
+  return { itemsPrice, shippingPrice, taxPrice, discountPrice: safeDiscount, totalPrice };
 };
 
 const toObjectIds = (ids = []) => ids
@@ -264,7 +266,24 @@ router.post('/', protect, async (req, res) => {
       });
     }
 
-    const { itemsPrice, shippingPrice, taxPrice, totalPrice } = calculateOrderTotals(cleanedOrderItems);
+    const cartForVoucher = await Cart.findOne({ user: req.user._id }).lean();
+    const voucher = cartForVoucher?.voucher || {};
+    const voucherAccepted = voucher.status === 'Accepted' && Number(voucher.amount || 0) > 0;
+    const voucherDiscount = voucherAccepted ? Number(voucher.amount || 0) : 0;
+    const voucherSnapshot = voucherAccepted ? {
+      image: voucher.image || '',
+      amount: voucherDiscount,
+      status: voucher.status,
+    } : {
+      image: voucher.image || '',
+      amount: Number(voucher.amount || 0),
+      status: voucher.status || '',
+    };
+
+    const { itemsPrice, shippingPrice, taxPrice, discountPrice, totalPrice } = calculateOrderTotals(
+      cleanedOrderItems,
+      voucherDiscount
+    );
 
     const order = new Order({
       user: req.user._id,
@@ -274,6 +293,8 @@ router.post('/', protect, async (req, res) => {
       itemsPrice,
       shippingPrice,
       taxPrice,
+      discountPrice,
+      voucher: voucherSnapshot,
       totalPrice,
     });
 
@@ -291,6 +312,12 @@ router.post('/', protect, async (req, res) => {
         cartItemIds,
         orderItems: cleanedOrderItems,
       });
+      if (voucherAccepted && cartForVoucher?._id) {
+        await Cart.updateOne(
+          { _id: cartForVoucher._id },
+          { $set: { voucher: { image: '', amount: 0, status: 'Pending', note: '' } } }
+        );
+      }
     } catch (cleanupErr) {
       console.error('Cart cleanup failed after order placement', cleanupErr);
     }

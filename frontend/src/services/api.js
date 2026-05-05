@@ -256,6 +256,27 @@ export const fetchAllCarts = async () => {
     return handleResponse(res);
 };
 
+export const updateCartVoucher = async (voucherData) => {
+    const isFormData = voucherData instanceof FormData;
+    const res = await fetch(`${BASE_URL}/cart/voucher`, {
+        method: 'POST',
+        headers: await authHeaders(isFormData),
+        body: isFormData ? voucherData : JSON.stringify(voucherData),
+    });
+
+    return handleResponse(res);
+};
+
+export const updateCartVoucherStatus = async (cartId, status, note = '') => {
+    const res = await fetch(`${BASE_URL}/cart/${cartId}/voucher/status`, {
+        method: 'PUT',
+        headers: await authHeaders(),
+        body: JSON.stringify({ status, note }),
+    });
+
+    return handleResponse(res);
+};
+
 export const addToCart = async (productId, quantity, size) => {
     const res = await fetch(`${BASE_URL}/cart/add`, {
         method: 'POST',

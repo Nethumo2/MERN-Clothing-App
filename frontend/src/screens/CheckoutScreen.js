@@ -196,12 +196,16 @@ export default function CheckoutScreen({ route, navigation }) {
     const subtotal = items.reduce((total, item) => total + getLineTotal(item), 0);
     const shipping = subtotal > 0 ? 200 : 0;
     const tax = subtotal * 0.08;
-    const total = subtotal + shipping + tax;
+    const voucher = cart?.voucher || {};
+    const voucherDiscount = voucher.status === 'Accepted'
+      ? Math.min(Number(voucher.amount || 0), subtotal + shipping + tax)
+      : 0;
+    const total = subtotal + shipping + tax - voucherDiscount;
 
-    return { subtotal, shipping, tax, total };
+    return { subtotal, shipping, tax, voucherDiscount, total };
   };
 
-  const { subtotal, shipping, tax, total } = calculateTotals();
+  const { subtotal, shipping, tax, voucherDiscount, total } = calculateTotals();
 
   const renderOrderItem = ({ item }) => {
     const statusKey = `status${(item.status || 'Pending').replace(/\s+/g, '')}`;
@@ -265,6 +269,12 @@ export default function CheckoutScreen({ route, navigation }) {
             <Text style={styles.summaryLabel}>Tax (8%)</Text>
             <Text style={styles.summaryPrice}>LKR {tax.toLocaleString()}</Text>
           </View>
+          {voucherDiscount > 0 ? (
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Accepted Voucher</Text>
+              <Text style={styles.discountPrice}>- LKR {voucherDiscount.toLocaleString()}</Text>
+            </View>
+          ) : null}
           <View style={[styles.summaryRow, styles.totalRow]}>
             <Text style={styles.totalLabel}>Total</Text>
             <Text style={styles.totalValue}>LKR {total.toLocaleString()}</Text>
@@ -412,6 +422,7 @@ const styles = StyleSheet.create({
   summaryLabel: { fontSize: 13, color: '#8A8175', flex: 1, marginRight: 8 },
   summaryItem: { fontSize: 13, color: '#3B3B3B', flex: 1, marginRight: 8 },
   summaryPrice: { fontSize: 13, fontWeight: '700', color: '#1B1B1B' },
+  discountPrice: { fontSize: 13, fontWeight: '800', color: '#0F3D33' },
   totalRow: { borderTopWidth: 1, borderTopColor: '#E9E2D8', paddingTop: 10, marginTop: 4, marginBottom: 0 },
   totalLabel: { fontSize: 15, fontWeight: '800', color: '#1B1B1B' },
   totalValue: { fontSize: 16, fontWeight: '900', color: '#BFA46A' },

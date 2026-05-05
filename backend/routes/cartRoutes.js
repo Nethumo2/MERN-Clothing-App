@@ -4,6 +4,7 @@ const Cart = require('../models/Cart');
 const Product = require('../models/Product');
 const Category = require('../models/Category');
 const { protect, admin } = require('../middleware/auth');
+const upload = require('../middleware/upload');
 
 const router = express.Router();
 
@@ -76,6 +77,7 @@ const toResponseCart = async (cart) => {
             ...item,
             product: normalizeProduct(item.product, categoryMap),
         }));
+    obj.voucher = obj.voucher || { image: '', amount: 0, status: 'Pending', note: '' };
 
     return obj;
 };
@@ -299,6 +301,74 @@ router.post('/remove-selected', protect, async (req, res) => {
 
         const updatedCart = await populateCart(cart._id);
         res.json(await toResponseCart(updatedCart));
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// @desc    Upload/request a cart voucher
+// @route   POST /api/cart/voucher
+// @access  Private
+router.post('/voucher', protect, upload.single('voucher'), async (req, res) => {
+    try {
+        const amount = Number(req.body.amount);
+
+        if (!Number.isFinite(amount) || amount <= 0) {
+            return res.status(400).json({ message: 'Voucher amount must be greater than 0' });
+        }
+
+        const image = req.file ? req.file.path : req.body.image;
+        if (!image) {
+            return res.status(400).json({ message: 'Voucher image is required' });
+        }
+
+        let cart = await Cart.findOne({ user: req.user._id });
+        if (!cart) {
+            cart = new Cart({ user: req.user._id, items: [], totalPrice: 0 });
+        }
+
+        cart.voucher = {
+            image,
+            amount,
+            status: 'Pending',
+            note: '',
+        };
+        await cart.save();
+
+        cart = await populateCart(cart._id);
+        res.json(await toResponseCart(cart));
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// @desc    Admin accepts/rejects a cart voucher
+// @route   PUT /api/cart/:cartId/voucher/status
+// @access  Private/Admin
+router.put('/:cartId/voucher/status', protect, admin, async (req, res) => {
+    try {
+        const { status, note } = req.body;
+        const allowedStatuses = ['Pending', 'Accepted', 'Rejected'];
+
+        if (!allowedStatuses.includes(status)) {
+            return res.status(400).json({ message: 'Invalid voucher status' });
+        }
+
+        let cart = await Cart.findById(req.params.cartId).populate('items.product');
+        if (!cart) {
+            return res.status(404).json({ message: 'Cart not found' });
+        }
+
+        if (!cart.voucher?.image || Number(cart.voucher?.amount || 0) <= 0) {
+            return res.status(400).json({ message: 'No voucher available for this cart' });
+        }
+
+        cart.voucher.status = status;
+        cart.voucher.note = note || '';
+        await cart.save();
+
+        cart = await populateCart(cart._id);
+        res.json(await toResponseCart(cart));
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

@@ -28,6 +28,25 @@ const cartSchema = new mongoose.Schema({
         required: true,
         default: 0.0,
     },
+    voucher: {
+        image: {
+            type: String,
+            default: '',
+        },
+        amount: {
+            type: Number,
+            default: 0,
+        },
+        status: {
+            type: String,
+            enum: ['Pending', 'Accepted', 'Rejected'],
+            default: 'Pending',
+        },
+        note: {
+            type: String,
+            default: '',
+        },
+    },
 }, {
     timestamps: true,
 });
