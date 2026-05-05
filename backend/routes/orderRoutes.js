@@ -16,6 +16,20 @@ const toValidPrice = (price) => {
   return Number.isFinite(value) && value >= 0 ? value : 0;
 };
 
+const getAvailableStock = (product) => {
+  const stock = Number(product.stock);
+  const countInStock = Number(product.countInStock);
+
+  if (Number.isFinite(stock)) return stock;
+  if (Number.isFinite(countInStock)) return countInStock;
+  return 0;
+};
+
+const setProductStock = (product, nextStock) => {
+  product.stock = nextStock;
+  product.countInStock = nextStock;
+};
+
 const imageValue = (image) => {
   if (typeof image === 'string') return image;
   return image?.url || image?.src || image?.secure_url || image?.imageUrl || image?.image || '';
@@ -148,6 +162,41 @@ const removeOrderedItemsFromCart = async ({ userId, cartItemIds = [], orderItems
   );
 };
 
+const adjustStockForOrderItems = async (orderItems = [], direction) => {
+  const quantityByProductId = new Map();
+
+  for (const item of orderItems) {
+    const productId = item.product?._id || item.product;
+    const quantity = toValidQuantity(item.qty || item.quantity);
+
+    if (!productId || quantity < 1) continue;
+
+    const productKey = productId.toString();
+    quantityByProductId.set(productKey, (quantityByProductId.get(productKey) || 0) + quantity);
+  }
+
+  for (const [productId, quantity] of quantityByProductId.entries()) {
+    const product = await Product.findById(productId);
+
+    if (!product) {
+      throw new Error('Product not found while updating stock');
+    }
+
+    const availableStock = getAvailableStock(product);
+
+    if (direction === 'decrease' && availableStock < quantity) {
+      throw new Error(`Only ${availableStock} item(s) left in stock for ${product.name}`);
+    }
+
+    const nextStock = direction === 'increase'
+      ? availableStock + quantity
+      : availableStock - quantity;
+
+    setProductStock(product, Math.max(nextStock, 0));
+    await product.save();
+  }
+};
+
 // @route   POST /api/orders
 // @desc    Create new order
 // @access  Private
@@ -168,6 +217,7 @@ router.post('/', protect, async (req, res) => {
     }
 
     const cleanedOrderItems = [];
+    const productsToUpdate = new Map();
 
     for (const item of orderItems) {
       const productId = item.product || item.productId;
@@ -183,7 +233,20 @@ router.post('/', protect, async (req, res) => {
         return res.status(404).json({ message: 'Product not found' });
       }
 
+      const availableStock = getAvailableStock(product);
+
+      const productKey = product._id.toString();
+      const previousOrderQuantity = productsToUpdate.get(productKey)?.quantity || 0;
+      const totalOrderQuantity = previousOrderQuantity + quantity;
+
+      if (availableStock < totalOrderQuantity) {
+        return res.status(400).json({
+          message: `Only ${availableStock} item(s) left in stock for ${product.name}`,
+        });
+      }
+
       const price = toValidPrice(product.price);
+      productsToUpdate.set(productKey, { product, quantity: totalOrderQuantity });
 
       cleanedOrderItems.push({
         name: product.name,
@@ -215,6 +278,12 @@ router.post('/', protect, async (req, res) => {
     });
 
     const createdOrder = await order.save();
+
+    for (const { product, quantity } of productsToUpdate.values()) {
+      const nextStock = Math.max(getAvailableStock(product) - quantity, 0);
+      setProductStock(product, nextStock);
+      await product.save();
+    }
 
     try {
       await removeOrderedItemsFromCart({
@@ -284,14 +353,25 @@ router.put('/:id/status', protect, admin, async (req, res) => {
 
     const order = await Order.findById(req.params.id);
     if (order) {
-      order.status = req.body.status;
+      const previousStatus = order.status || 'Pending';
+      const nextStatus = req.body.status;
+
+      if (previousStatus !== 'Order Cancelled' && nextStatus === 'Order Cancelled') {
+        await adjustStockForOrderItems(order.orderItems, 'increase');
+      }
+
+      if (previousStatus === 'Order Cancelled' && nextStatus !== 'Order Cancelled') {
+        await adjustStockForOrderItems(order.orderItems, 'decrease');
+      }
+
+      order.status = nextStatus;
       const updatedOrder = await order.save();
       res.json(updatedOrder);
     } else {
       res.status(404).json({ message: 'Order not found' });
     }
   } catch (err) {
-    res.status(500).json({ message: 'Server Error' });
+    res.status(500).json({ message: err.message || 'Server Error' });
   }
 });
 
