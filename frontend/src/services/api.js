@@ -133,14 +133,17 @@ export const fetchProductById = async (id) => {
 };
 
 export const createProduct = async (product) => {
+    const isFormData = product instanceof FormData;
     const token = await AsyncStorage.getItem('userToken');
     const res = await fetch(`${BASE_URL}/products`, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
+        headers: isFormData
+            ? { Authorization: `Bearer ${token}` }
+            : {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+            },
+        body: isFormData ? product : JSON.stringify({
             name: product.name,
             price: product.price,
             comparePrice: product.comparePrice,
@@ -156,14 +159,17 @@ export const createProduct = async (product) => {
 };
 
 export const updateProduct = async (id, product) => {
+    const isFormData = product instanceof FormData;
     const token = await AsyncStorage.getItem('userToken');
     const res = await fetch(`${BASE_URL}/products/${id}`, {
         method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
+        headers: isFormData
+            ? { Authorization: `Bearer ${token}` }
+            : {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+            },
+        body: isFormData ? product : JSON.stringify({
             name: product.name,
             price: product.price,
             comparePrice: product.comparePrice,

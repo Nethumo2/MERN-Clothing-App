@@ -2,6 +2,7 @@ const express = require('express');
 const Product = require('../models/Product');
 const Category = require('../models/Category');
 const { protect, admin } = require('../middleware/auth');
+const upload = require('../middleware/upload');
 
 const router = express.Router();
 
@@ -120,11 +121,12 @@ router.get('/:id', async (req, res) => {
 // @desc    Create Product
 // @route   POST /api/products
 // @access  Private/Admin
-router.post('/', protect, admin, async (req, res) => {
+router.post('/', protect, admin, upload.single('image'), async (req, res) => {
     try {
         const { name, price, comparePrice, discountPercent, discount, size, sizes, category, countInStock, stock, description, imageUrl, images } = req.body;
         const productSizes = size || sizes || [];
-        const productImages = images || (imageUrl ? [imageUrl] : undefined);
+        const uploadedImage = req.file ? req.file.path : imageUrl;
+        const productImages = images || (uploadedImage ? [uploadedImage] : undefined);
 
         const product = new Product({
             name,
@@ -137,7 +139,7 @@ router.post('/', protect, admin, async (req, res) => {
             category: normalizeCategoryValue(category),
             countInStock: countInStock ?? stock ?? 0,
             stock: stock ?? countInStock ?? 0,
-            imageUrl: imageUrl || 'https://via.placeholder.com/300x300?text=No+Image',
+            imageUrl: uploadedImage || 'https://via.placeholder.com/300x300?text=No+Image',
             images: productImages,
         });
 
@@ -151,9 +153,10 @@ router.post('/', protect, admin, async (req, res) => {
 // @desc    Update Product
 // @route   PUT /api/products/:id
 // @access  Private/Admin
-router.put('/:id', protect, admin, async (req, res) => {
+router.put('/:id', protect, admin, upload.single('image'), async (req, res) => {
     try {
         const { name, price, comparePrice, discountPercent, discount, size, sizes, category, description, countInStock, stock, imageUrl, images } = req.body;
+        const uploadedImage = req.file ? req.file.path : imageUrl;
         const product = await Product.findById(req.params.id);
 
         if (product) {
@@ -180,7 +183,7 @@ router.put('/:id', protect, admin, async (req, res) => {
                 product.size = normalizedSizes;
                 product.sizes = normalizedSizes;
             }
-            if (imageUrl !== undefined) product.imageUrl = imageUrl;
+            if (uploadedImage !== undefined) product.imageUrl = uploadedImage;
             if (images !== undefined) product.images = images;
 
             const updatedProduct = await product.save();

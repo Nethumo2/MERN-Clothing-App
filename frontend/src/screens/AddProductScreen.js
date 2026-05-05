@@ -3,6 +3,7 @@ import {
     View, Text, TextInput, TouchableOpacity,
     StyleSheet, ActivityIndicator, ScrollView, Image, Alert, Platform,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { createProduct } from '../services/api';
 
 const showAlert = (title, message) => {
@@ -21,7 +22,55 @@ export default function AddProductScreen({ navigation }) {
     const [countInStock, setCountInStock] = useState('');
     const [size, setSize] = useState('');
     const [imageUrl, setImageUrl] = useState('');
+    const [imageFile, setImageFile] = useState(null);
     const [loading, setLoading] = useState(false);
+
+    const pickImage = async () => {
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [4, 3],
+            quality: 1,
+        });
+
+        if (!result.canceled) {
+            setImageFile(result.assets[0]);
+        }
+    };
+
+    const buildImageFormData = async () => {
+        const payload = new FormData();
+        payload.append('name', name);
+        payload.append('price', price);
+        payload.append('discountPercent', discountPercent.trim() ? discountPercent : 0);
+        payload.append('category', '');
+        payload.append('description', description);
+        payload.append('countInStock', countInStock || 0);
+        payload.append('size', size);
+
+        if (Platform.OS === 'web') {
+            if (imageFile.file) {
+                payload.append('image', imageFile.file);
+            } else {
+                const response = await fetch(imageFile.uri);
+                const blob = await response.blob();
+                payload.append('image', blob, imageFile.fileName || 'product.jpg');
+            }
+        } else {
+            const localUri = imageFile.uri;
+            let filename = imageFile.fileName || localUri.split('/').pop() || 'product.jpg';
+            if (!filename.includes('.')) filename += '.jpg';
+            const type = imageFile.mimeType || 'image/jpeg';
+
+            payload.append('image', {
+                uri: localUri,
+                name: filename,
+                type,
+            });
+        }
+
+        return payload;
+    };
 
     const handleSubmit = async () => {
         if (!name || !price || !size) {
@@ -30,16 +79,18 @@ export default function AddProductScreen({ navigation }) {
         }
         setLoading(true);
         try {
-            await createProduct({
-                name,
-                price,
-                discountPercent: discountPercent.trim() ? discountPercent : 0,
-                category: null,
-                description,
-                countInStock: countInStock || 0,
-                size,
-                imageUrl: imageUrl || 'https://via.placeholder.com/300x300?text=No+Image',
-            });
+            const payload = imageFile ? await buildImageFormData() : {
+                    name,
+                    price,
+                    discountPercent: discountPercent.trim() ? discountPercent : 0,
+                    category: null,
+                    description,
+                    countInStock: countInStock || 0,
+                    size,
+                    imageUrl: imageUrl || 'https://via.placeholder.com/300x300?text=No+Image',
+                };
+
+            await createProduct(payload);
             showAlert('Success', 'Product added!');
             navigation.navigate('Home');
         } catch (e) {
@@ -121,15 +172,28 @@ export default function AddProductScreen({ navigation }) {
                     style={styles.input}
                     placeholder="https://example.com/image.jpg"
                     value={imageUrl}
-                    onChangeText={setImageUrl}
+                    onChangeText={(value) => {
+                        setImageUrl(value);
+                        if (value) setImageFile(null);
+                    }}
                     autoCapitalize="none"
                 />
 
-                {imageUrl ? (
-                    <Image source={{ uri: imageUrl }} style={styles.previewImage} resizeMode="cover" />
+                <TouchableOpacity style={styles.imagePickerBtn} onPress={pickImage}>
+                    <Text style={styles.imagePickerText}>
+                        {imageFile ? 'Change Uploaded Image' : 'Choose Product Image'}
+                    </Text>
+                </TouchableOpacity>
+
+                {imageFile || imageUrl ? (
+                    <Image
+                        source={{ uri: imageFile ? imageFile.uri : imageUrl }}
+                        style={styles.previewImage}
+                        resizeMode="cover"
+                    />
                 ) : null}
 
-                <Text style={styles.hint}>Upload an image and paste the URL here.</Text>
+                <Text style={styles.hint}>Choose an image file or paste an image URL.</Text>
 
                 <TouchableOpacity
                     style={[styles.submitBtn, loading && { opacity: 0.6 }]}
@@ -169,6 +233,11 @@ const styles = StyleSheet.create({
         width: '100%', height: 180, borderRadius: 12, marginTop: 10,
     },
     hint: { fontSize: 12, color: '#8A8175', marginTop: 6, fontStyle: 'italic' },
+    imagePickerBtn: {
+        backgroundColor: '#F5F1EA', borderWidth: 1, borderColor: '#E9E2D8',
+        borderRadius: 12, padding: 13, alignItems: 'center', marginTop: 10,
+    },
+    imagePickerText: { color: '#9F8247', fontWeight: '700' },
     submitBtn: {
         backgroundColor: '#BFA46A', borderRadius: 12,
         padding: 16, alignItems: 'center', marginTop: 24, marginBottom: 40,
