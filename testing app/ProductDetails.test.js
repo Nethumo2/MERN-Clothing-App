@@ -4,7 +4,6 @@
  * Component: Product Details Screen
  */
 
-// ─── Globals ──────────────────────────────────────────────────────────────────
 global.AsyncStorage = {
     getItem: jest.fn(),
     setItem: jest.fn(),
@@ -15,7 +14,6 @@ global.fetch = jest.fn();
 
 const BASE_URL = 'http://10.92.115.223:5000/api';
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 const mockOk = (data) =>
     fetch.mockResolvedValueOnce({
         ok: true,
@@ -32,7 +30,6 @@ const mockFail = (message, status = 400) =>
 const mockNetworkError = () =>
     fetch.mockRejectedValueOnce(new Error('Network request failed'));
 
-// ─── Mirrors api.js (handleResponse now uses .text() not .json()) ─────────────
 const handleResponse = async (res) => {
     const text = await res.text();
     let data = null;
