@@ -357,7 +357,7 @@ Normal customers can browse products, manage cart, upload vouchers, checkout, up
 ## GitHub Repository
 
 ```text
-https://github.com/IT24101992/WMT-Assignment
+https://github.com/Nethumo2/MERN-Clothing-App
 ```
 
 ## Contributors
